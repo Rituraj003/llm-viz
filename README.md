@@ -39,7 +39,7 @@ npm run build
 
 ## Data
 
-- **8,792 GSM8K problems** from Mistral-7B-Instruct evaluation
+- **7,473 GSM8K problems** from Mistral-7B-Instruct evaluation
 - **t-SNE embeddings** for 2D visualization
 - **Token-level confidence scores** from log probabilities
 - **10 semantic clusters** of problem types
