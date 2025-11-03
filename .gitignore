@@ -29,3 +29,4 @@ dist-ssr
 
 # Processing scripts
 convert_embeddings.py
+.vercel
