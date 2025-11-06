@@ -127,7 +127,6 @@
   line-height: 2;
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
 }
 
 .token {
@@ -140,12 +139,31 @@
   display: inline-block;
   white-space: pre-wrap;
   word-break: break-word;
+  margin-right: 4px;
+  margin-bottom: 4px;
 }
 
 .token:hover {
   transform: scale(1.05);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   z-index: 1;
+}
+
+.token.merge-start {
+  margin-right: 0;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.token.merge-mid {
+  margin-right: 0;
+  border-radius: 0;
+}
+
+.token.merge-end {
+  margin-left: 0;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
 }
 
 .confidence-legend {

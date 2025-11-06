@@ -81,6 +81,16 @@ const DetailView: React.FC<DetailViewProps> = ({ pointId, onClose }) => {
     }
   };
 
+  // Helper to split by confidence (low, medium, or high)
+  const getConfidence = (c: number): "low" | "medium" | "high" => {
+    const v = Math.max(0, Math.min(1, c));
+    if (v >= 0.5) return "high";
+    if (v >= 0.25) return "medium";
+    return "low";
+  };
+
+  const tokenContainerRef = React.useRef<HTMLDivElement | null>(null);
+
   const renderTokens = () => {
     if (!data || !data.tokens || !data.confidence_scores) {
       return <p className="response-text">{data?.response || ""}</p>;
@@ -93,23 +103,72 @@ const DetailView: React.FC<DetailViewProps> = ({ pointId, onClose }) => {
     }));
 
     return (
-      <div className="token-container">
-        {tokensWithConfidence.map((token, idx) => (
-          <span
-            key={idx}
-            className="token"
-            style={{
-              backgroundColor: getConfidenceColor(token.confidence),
-              color: token.confidence > 0.3 ? "#1a1a1a" : "#ffffff",
-            }}
-            title={`Confidence: ${(token.confidence * 100).toFixed(1)}%`}
-          >
-            {token.text}
-          </span>
-        ))}
+      <div className="token-container" ref={tokenContainerRef}>
+        {tokensWithConfidence.map((token, idx) => {
+          const bucket = getConfidence(token.confidence);
+          return (
+            <span
+              key={idx}
+              className={`token`}
+              data-index={idx}
+              data-bucket={bucket}
+              style={{
+                backgroundColor: getConfidenceColor(token.confidence),
+                color: token.confidence > 0.3 ? "#1a1a1a" : "#ffffff",
+              }}
+              title={`Confidence: ${(token.confidence * 100).toFixed(1)}%`}
+            >
+              {token.text}
+            </span>
+          );
+        })}
       </div>
     );
   };
+
+  // Merge tokens on the same line
+  React.useEffect(() => {
+    const container = tokenContainerRef.current;
+    if (!container) return;
+    const els = Array.from(
+      container.querySelectorAll<HTMLSpanElement>(".token")
+    );
+
+    // remove previous merges
+    els.forEach((el) => {
+      el.classList.remove("merge-start", "merge-mid", "merge-end");
+    });
+
+    const raf = requestAnimationFrame(() => {
+      let i = 0;
+      const tolerance = 6;
+      while (i < els.length) {
+        const start = i;
+        const startTop = els[i].offsetTop;
+        const bucket = els[i].dataset.bucket;
+        let j = i + 1;
+        while (
+          j < els.length &&
+          els[j].dataset.bucket === bucket &&
+          Math.abs(els[j].offsetTop - startTop) <= tolerance
+        ) {
+          j++;
+        }
+
+        const groupLen = j - start;
+        if (groupLen > 1) {
+          els[start].classList.add("merge-start");
+          for (let k = start + 1; k < j - 1; k++)
+            els[k].classList.add("merge-mid");
+          els[j - 1].classList.add("merge-end");
+        }
+
+        i = j;
+      }
+    });
+
+    return () => cancelAnimationFrame(raf);
+  }, [data?.tokens, data?.confidence_scores]);
 
   if (loading) {
     return (
@@ -157,21 +216,21 @@ const DetailView: React.FC<DetailViewProps> = ({ pointId, onClose }) => {
               <span className="legend-item">
                 <span
                   className="legend-color"
-                  style={{ backgroundColor: getConfidenceColor(1.0) }}
+                  style={{ backgroundColor: getConfidenceColor(0.75) }}
                 />
                 High Confidence
               </span>
               <span className="legend-item">
                 <span
                   className="legend-color"
-                  style={{ backgroundColor: getConfidenceColor(0.5) }}
+                  style={{ backgroundColor: getConfidenceColor(0.375) }}
                 />
                 Medium
               </span>
               <span className="legend-item">
                 <span
                   className="legend-color"
-                  style={{ backgroundColor: getConfidenceColor(0.0) }}
+                  style={{ backgroundColor: getConfidenceColor(0.125) }}
                 />
                 Low Confidence
               </span>
