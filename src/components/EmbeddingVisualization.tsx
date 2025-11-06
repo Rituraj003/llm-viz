@@ -106,6 +106,74 @@ const Legend: React.FC<{
   );
 };
 
+const ConfidenceSlider: React.FC<{
+  range: [number, number];
+  onChange: (range: [number, number]) => void;
+}> = ({ range, onChange }) => {
+  const [localMin, setLocalMin] = useState(range[0]);
+  const [localMax, setLocalMax] = useState(range[1]);
+
+  useEffect(() => {
+    setLocalMin(range[0]);
+    setLocalMax(range[1]);
+  }, [range]);
+
+  const handleMinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseFloat(e.target.value);
+    const newMin = Math.min(value, localMax - 0.01);
+    setLocalMin(newMin);
+    onChange([newMin, localMax]);
+  };
+
+  const handleMaxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseFloat(e.target.value);
+    const newMax = Math.max(value, localMin + 0.01);
+    setLocalMax(newMax);
+    onChange([localMin, newMax]);
+  };
+
+  return (
+    <div style={{ marginTop: "20px" }}>
+      <h4 style={{ marginBottom: "10px", color: "#E0E0E0" }}>
+        Confidence Filter
+      </h4>
+      <div style={{ padding: "10px 5px" }}>
+        <div style={{ marginBottom: "15px" }}>
+          <label style={{ fontSize: "12px", color: "#B0B0B0", display: "block", marginBottom: "5px" }}>
+            Min: {(localMin * 100).toFixed(0)}%
+          </label>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.01"
+            value={localMin}
+            onChange={handleMinChange}
+            style={{ width: "100%", cursor: "pointer" }}
+          />
+        </div>
+        <div>
+          <label style={{ fontSize: "12px", color: "#B0B0B0", display: "block", marginBottom: "5px" }}>
+            Max: {(localMax * 100).toFixed(0)}%
+          </label>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.01"
+            value={localMax}
+            onChange={handleMaxChange}
+            style={{ width: "100%", cursor: "pointer" }}
+          />
+        </div>
+        <div style={{ marginTop: "10px", fontSize: "11px", color: "#888" }}>
+          Showing {(localMin * 100).toFixed(0)}% - {(localMax * 100).toFixed(0)}% confidence
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- Main Component ---
 
 interface DataPoint {
@@ -115,6 +183,7 @@ interface DataPoint {
   id: number;
   question: string;
   isCorrect?: number; // 1 for correct, 0 for incorrect
+  avgConfidence?: number; // Average confidence of the response
 }
 
 const EmbeddingVisualization: React.FC = () => {
@@ -132,6 +201,7 @@ const EmbeddingVisualization: React.FC = () => {
   const [activeClusters, setActiveClusters] = useState<Set<number>>(new Set());
   const [transform, setTransform] = useState(d3.zoomIdentity);
   const [selectedPointId, setSelectedPointId] = useState<number | null>(null);
+  const [confidenceRange, setConfidenceRange] = useState<[number, number]>([0, 1]);
 
   const dimensions = {
     width: 1000,
@@ -158,9 +228,9 @@ const EmbeddingVisualization: React.FC = () => {
     ])
       .then(
         ([embeddingData, questionData, responsesData]: [
-          Omit<DataPoint, "question" | "isCorrect">[],
+          Omit<DataPoint, "question" | "isCorrect" | "avgConfidence">[],
           { id: number; question: string }[],
-          { i: number; x: number }[]
+          { i: number; x: number; c?: number[] }[]
         ]) => {
           const questionMap = new Map(
             questionData.map((d) => [d.id, d.question])
@@ -168,10 +238,19 @@ const EmbeddingVisualization: React.FC = () => {
           const correctnessMap = new Map(
             responsesData.map((d) => [d.i, d.x])
           );
+          const confidenceMap = new Map(
+            responsesData.map((d) => {
+              const avgConf = d.c && d.c.length > 0
+                ? d.c.reduce((sum, val) => sum + val, 0) / d.c.length
+                : 0.5;
+              return [d.i, avgConf];
+            })
+          );
           const mergedData = embeddingData.map((d) => ({
             ...d,
             question: questionMap.get(d.id) || "",
             isCorrect: correctnessMap.get(d.id),
+            avgConfidence: confidenceMap.get(d.id),
           }));
           setData(mergedData);
           setActiveClusters(new Set(mergedData.map((p) => p.cluster)));
@@ -209,10 +288,18 @@ const EmbeddingVisualization: React.FC = () => {
     const clusters = [...new Set(data.map((d) => d.cluster))];
     clusters.forEach((c) => clusterColors.set(c, colorScale(String(c))));
 
-    const filteredData = data.filter((d) => activeClusters.has(d.cluster));
+    const filteredData = data.filter((d) => {
+      // Filter by cluster
+      if (!activeClusters.has(d.cluster)) return false;
+      // Filter by confidence range
+      if (d.avgConfidence !== undefined) {
+        return d.avgConfidence >= confidenceRange[0] && d.avgConfidence <= confidenceRange[1];
+      }
+      return true;
+    });
 
     return { xScale, yScale, clusterColors, filteredData };
-  }, [data, activeClusters, dimensions]);
+  }, [data, activeClusters, confidenceRange, dimensions]);
 
   // --- Canvas Drawing ---
   const drawPoints = useCallback(
@@ -443,6 +530,9 @@ const EmbeddingVisualization: React.FC = () => {
 
     // Reset all clusters to visible
     setActiveClusters(new Set(data.map((p) => p.cluster)));
+    
+    // Reset confidence range
+    setConfidenceRange([0, 1]);
   };
 
   // --- Render ---
@@ -460,6 +550,11 @@ const EmbeddingVisualization: React.FC = () => {
         <button onClick={handleResetView} className="reset-button">
           Reset View
         </button>
+        <hr className="divider" />
+        <ConfidenceSlider
+          range={confidenceRange}
+          onChange={setConfidenceRange}
+        />
         <hr className="divider" />
         <Legend
           clusterColors={clusterColors}
