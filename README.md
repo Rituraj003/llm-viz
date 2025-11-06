@@ -5,6 +5,7 @@ Interactive visualization of 8,792 GSM8K math problems with model responses and 
 ## Features
 
 - 🎨 **Interactive t-SNE Visualization** - Explore 8,792 points colored by problem clusters
+- ✓✗ **Correctness Indicators** - ✓ for correct answers, ✗ for incorrect answers overlaid on each point (using cluster colors)
 - 🔍 **Click to View Details** - See prompts, model responses, and token-level confidence
 - 🎯 **Confidence Highlighting** - Color-coded tokens (🟢 Green = High, 🟡 Yellow = Medium, 🔴 Red = Low)
 - ⚡ **IndexedDB Caching** - Fast loading after initial data fetch

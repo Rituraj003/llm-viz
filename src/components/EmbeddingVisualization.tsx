@@ -114,6 +114,7 @@ interface DataPoint {
   cluster: number;
   id: number;
   question: string;
+  isCorrect?: number; // 1 for correct, 0 for incorrect
 }
 
 const EmbeddingVisualization: React.FC = () => {
@@ -150,18 +151,27 @@ const EmbeddingVisualization: React.FC = () => {
         if (!res.ok) throw new Error(`Failed to load data: ${res.statusText}`);
         return res.json();
       }),
+      fetch("/responses_all.json").then((res) => {
+        if (!res.ok) throw new Error(`Failed to load data: ${res.statusText}`);
+        return res.json();
+      }),
     ])
       .then(
-        ([embeddingData, questionData]: [
-          Omit<DataPoint, "question">[],
-          { id: number; question: string }[]
+        ([embeddingData, questionData, responsesData]: [
+          Omit<DataPoint, "question" | "isCorrect">[],
+          { id: number; question: string }[],
+          { i: number; x: number }[]
         ]) => {
           const questionMap = new Map(
             questionData.map((d) => [d.id, d.question])
           );
+          const correctnessMap = new Map(
+            responsesData.map((d) => [d.i, d.x])
+          );
           const mergedData = embeddingData.map((d) => ({
             ...d,
             question: questionMap.get(d.id) || "",
+            isCorrect: correctnessMap.get(d.id),
           }));
           setData(mergedData);
           setActiveClusters(new Set(mergedData.map((p) => p.cluster)));
@@ -227,24 +237,53 @@ const EmbeddingVisualization: React.FC = () => {
 
         if (cx < 0 || cx > width || cy < 0 || cy > height) return;
 
-        ctx.beginPath();
-        ctx.arc(cx, cy, 2.5, 0, 2 * Math.PI);
-        ctx.fillStyle = clusterColors.get(d.cluster) || "#999";
-        ctx.globalAlpha = 0.7;
-        ctx.fill();
+        const pointColor = clusterColors.get(d.cluster) || "#999";
+
+        // Draw checkmark or cross based on correctness (no background circle)
+        if (d.isCorrect !== undefined) {
+          ctx.globalAlpha = 1;
+          ctx.font = "bold 12px Arial";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillStyle = pointColor; // Use cluster color
+          
+          if (d.isCorrect === 1) {
+            // Correct - draw checkmark (✓)
+            ctx.fillText("✓", cx, cy);
+          } else {
+            // Incorrect - draw cross (✗)
+            ctx.fillText("✗", cx, cy);
+          }
+        }
       });
 
       if (hoveredPoint) {
         const cx = currentTransform.applyX(xScale(hoveredPoint.x));
         const cy = currentTransform.applyY(yScale(hoveredPoint.y));
+        const hoverColor = clusterColors.get(hoveredPoint.cluster) || "#999";
+        
+        // Draw a highlight circle for hovered point
         ctx.beginPath();
-        ctx.arc(cx, cy, 6, 0, 2 * Math.PI);
-        ctx.fillStyle = clusterColors.get(hoveredPoint.cluster) || "#999";
-        ctx.globalAlpha = 1;
-        ctx.fill();
+        ctx.arc(cx, cy, 8, 0, 2 * Math.PI);
         ctx.strokeStyle = "#fff";
         ctx.lineWidth = 2;
+        ctx.globalAlpha = 0.5;
         ctx.stroke();
+
+        // Redraw the symbol larger for hovered point
+        if (hoveredPoint.isCorrect !== undefined) {
+          ctx.globalAlpha = 1;
+          ctx.font = "bold 16px Arial";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillStyle = hoverColor; // Use cluster color
+          
+          if (hoveredPoint.isCorrect === 1) {
+            ctx.fillText("✓", cx, cy);
+          } else {
+            ctx.fillText("✗", cx, cy);
+          }
+        }
       }
     },
     [dimensions, filteredData, hoveredPoint, xScale, yScale, clusterColors]
