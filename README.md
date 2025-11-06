@@ -8,6 +8,7 @@ Interactive visualization of 8,792 GSM8K math problems with model responses and 
 - ✓✗ **Correctness Indicators** - ✓ for correct answers, ✗ for incorrect answers overlaid on each point (using cluster colors)
 - 🔍 **Click to View Details** - See prompts, model responses, and token-level confidence
 - 🎯 **Confidence Highlighting** - Color-coded tokens (🟢 Green = High, 🟡 Yellow = Medium, 🔴 Red = Low)
+- 🔄 **Reset View** - One-click reset to restore zoom level and show all clusters
 - ⚡ **IndexedDB Caching** - Fast loading after initial data fetch
 - 🎨 **10 Problem Clusters** - From percentage problems to measurement tasks
 

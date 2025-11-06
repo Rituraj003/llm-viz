@@ -338,8 +338,8 @@ const EmbeddingVisualization: React.FC = () => {
         setTransform(event.transform);
       });
 
-    canvas.call(zoom as any).on("wheel.zoom", null); // Disable scroll-to-zoom on canvas
-    svg.call(zoom as any); // Apply zoom to SVG overlay instead
+    canvas.call(zoom as any); // Enable zoom on canvas (including scroll-to-zoom)
+    svg.call(zoom as any); // Also apply zoom to SVG overlay for consistency
 
     return () => {
       canvas.on(".zoom", null);
@@ -429,6 +429,7 @@ const EmbeddingVisualization: React.FC = () => {
     const canvas = d3.select(canvasRef.current);
     if (!svg || !canvas) return;
 
+    // Reset zoom
     const zoom = d3.zoom().on("zoom", (event) => setTransform(event.transform));
 
     canvas
@@ -439,6 +440,9 @@ const EmbeddingVisualization: React.FC = () => {
       .transition()
       .duration(750)
       .call(zoom.transform as any, d3.zoomIdentity);
+
+    // Reset all clusters to visible
+    setActiveClusters(new Set(data.map((p) => p.cluster)));
   };
 
   // --- Render ---
