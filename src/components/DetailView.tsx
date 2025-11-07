@@ -86,28 +86,47 @@ const DetailView: React.FC<DetailViewProps> = ({ pointId, onClose }) => {
     return <p className="response-text">{data?.response || ""}</p>;
   }
 
-  // Extract raw scores
   const scores = data.confidence_scores;
-  const minScore = Math.min(...scores);
-  const maxScore = Math.max(...scores);
+  const sorted = [...scores].sort((a, b) => a - b);
 
-  // Normalize to [0, 1]
-  const normalizedTokens: Token[] = data.tokens.map((text, i) => ({
-    text,
-    confidence: (scores[i] - minScore) / (maxScore - minScore + 1e-9),
-  }));
+  // Compute quantile thresholds
+  const lowQuantile = sorted[Math.floor(sorted.length * 0.33)];
+  const highQuantile = sorted[Math.floor(sorted.length * 0.66)];
+
+  // Assign each token a bin color: Red / Yellow / Green
+  const tokensWithBins = data.tokens.map((text, i) => {
+    const score = scores[i];
+    let binColor;
+
+    if (score <= lowQuantile) {
+      binColor = "low";
+    } else if (score <= highQuantile) {
+      binColor = "medium";
+    } else {
+      binColor = "high";
+    }
+
+    return { text, binColor };
+  });
+
+  // Map bin to actual colors
+  const COLOR_MAP: Record<string, string> = {
+    high: "rgb(34, 197, 94)",   // Green
+    medium: "rgb(234, 179, 8)", // Yellow
+    low: "rgb(239, 68, 68)",    // Red
+  };
 
   return (
     <div className="token-container">
-      {normalizedTokens.map((token, idx) => (
+      {tokensWithBins.map((token, idx) => (
         <span
           key={idx}
           className="token"
           style={{
-            backgroundColor: getConfidenceColor(token.confidence),
-            color: token.confidence > 0.35 ? "#1a1a1a" : "#ffffff",
+            backgroundColor: COLOR_MAP[token.binColor],
+            color: token.binColor === "high" ? "#1a1a1a" : "#ffffff",
           }}
-          title={`Relative Confidence: ${(token.confidence * 100).toFixed(1)}%`}
+          title={`Confidence Group: ${token.binColor.toUpperCase()}`}
         >
           {token.text}
         </span>
