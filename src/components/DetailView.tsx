@@ -126,7 +126,7 @@ const DetailView: React.FC<DetailViewProps> = ({ pointId, onClose }) => {
             backgroundColor: COLOR_MAP[token.binColor],
             color: token.binColor === "high" ? "#1a1a1a" : "#ffffff",
           }}
-          title={`Confidence Group: ${token.binColor.toUpperCase()}`}
+         title={`Confidence: ${(token.confidence * 100).toFixed(1)}%`}
         >
           {token.text}
         </span>
