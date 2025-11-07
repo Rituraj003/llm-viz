@@ -82,34 +82,40 @@ const DetailView: React.FC<DetailViewProps> = ({ pointId, onClose }) => {
   };
 
   const renderTokens = () => {
-    if (!data || !data.tokens || !data.confidence_scores) {
-      return <p className="response-text">{data?.response || ""}</p>;
-    }
+  if (!data || !data.tokens || !data.confidence_scores) {
+    return <p className="response-text">{data?.response || ""}</p>;
+  }
 
-    // Combine tokens with confidence scores
-    const tokensWithConfidence: Token[] = data.tokens.map((text, i) => ({
-      text,
-      confidence: data.confidence_scores![i] || 0,
-    }));
+  // Extract raw scores
+  const scores = data.confidence_scores;
+  const minScore = Math.min(...scores);
+  const maxScore = Math.max(...scores);
 
-    return (
-      <div className="token-container">
-        {tokensWithConfidence.map((token, idx) => (
-          <span
-            key={idx}
-            className="token"
-            style={{
-              backgroundColor: getConfidenceColor(token.confidence),
-              color: token.confidence > 0.3 ? "#1a1a1a" : "#ffffff",
-            }}
-            title={`Confidence: ${(token.confidence * 100).toFixed(1)}%`}
-          >
-            {token.text}
-          </span>
-        ))}
-      </div>
-    );
-  };
+  // Normalize to [0, 1]
+  const normalizedTokens: Token[] = data.tokens.map((text, i) => ({
+    text,
+    confidence: (scores[i] - minScore) / (maxScore - minScore + 1e-9),
+  }));
+
+  return (
+    <div className="token-container">
+      {normalizedTokens.map((token, idx) => (
+        <span
+          key={idx}
+          className="token"
+          style={{
+            backgroundColor: getConfidenceColor(token.confidence),
+            color: token.confidence > 0.35 ? "#1a1a1a" : "#ffffff",
+          }}
+          title={`Relative Confidence: ${(token.confidence * 100).toFixed(1)}%`}
+        >
+          {token.text}
+        </span>
+      ))}
+    </div>
+  );
+};
+
 
   if (loading) {
     return (
