@@ -127,7 +127,7 @@ const tokensWithConfidence = data.tokens.map((text, i) => {
     ))}
   </div>
 );
-
+};
 
   if (loading) {
     return (
