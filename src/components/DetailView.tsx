@@ -110,24 +110,23 @@ const tokensWithConfidence = data.tokens.map((text, i) => {
     low: "rgb(239, 68, 68)",    // Red
   };
 
-  return (
-    <div className="token-container">
-  {tokensWithConfidence.map((token, idx) => (
-    <span
-      key={idx}
-      className="token"
-      style={{
-        backgroundColor: getConfidenceColor(token.category === "low" ? 0.1 : token.category === "medium" ? 0.5 : 0.9),
-        color: token.category === "high" ? "#1a1a1a" : "#ffffff",
-      }}
-      title={`Confidence: ${(token.confidence * 100).toFixed(1)}%`}
-    >
-      {token.text}
-    </span>
-  ))}
-</div>
-  );
-};
+ return (
+  <div className="token-container">
+    {tokensWithConfidence.map((token, idx) => (
+      <span
+        key={idx}
+        className="token"
+        style={{
+          backgroundColor: COLOR_MAP[token.category],  
+          color: token.category === "high" ? "#1a1a1a" : "#ffffff",
+        }}
+        title={`Confidence: ${(token.confidence * 100).toFixed(1)}%`}
+      >
+        {token.text}
+      </span>
+    ))}
+  </div>
+);
 
 
   if (loading) {
