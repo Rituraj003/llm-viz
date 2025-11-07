@@ -86,28 +86,22 @@ const DetailView: React.FC<DetailViewProps> = ({ pointId, onClose }) => {
     return <p className="response-text">{data?.response || ""}</p>;
   }
 
-  const scores = data.confidence_scores;
-  const sorted = [...scores].sort((a, b) => a - b);
+  const rawScores = data.confidence_scores!;
+const sorted = [...rawScores].sort((a, b) => a - b);
 
-  // Compute quantile thresholds
-  const lowQuantile = sorted[Math.floor(sorted.length * 0.33)];
-  const highQuantile = sorted[Math.floor(sorted.length * 0.66)];
+const q33 = sorted[Math.floor(sorted.length * 0.33)];
+const q66 = sorted[Math.floor(sorted.length * 0.66)];
 
-  // Assign each token a bin color: Red / Yellow / Green
-  const tokensWithBins = data.tokens.map((text, i) => {
-    const score = scores[i];
-    let binColor;
+const tokensWithConfidence = data.tokens.map((text, i) => {
+  const score = rawScores[i];
 
-    if (score <= lowQuantile) {
-      binColor = "low";
-    } else if (score <= highQuantile) {
-      binColor = "medium";
-    } else {
-      binColor = "high";
-    }
+  let category: "low" | "medium" | "high";
+  if (score <= q33) category = "low";
+  else if (score <= q66) category = "medium";
+  else category = "high";
 
-    return { text, binColor };
-  });
+  return { text, confidence: score, category };
+});
 
   // Map bin to actual colors
   const COLOR_MAP: Record<string, string> = {
@@ -118,20 +112,20 @@ const DetailView: React.FC<DetailViewProps> = ({ pointId, onClose }) => {
 
   return (
     <div className="token-container">
-      {tokensWithBins.map((token, idx) => (
-        <span
-          key={idx}
-          className="token"
-          style={{
-            backgroundColor: COLOR_MAP[token.binColor],
-            color: token.binColor === "high" ? "#1a1a1a" : "#ffffff",
-          }}
-         title={`Confidence: ${(token.confidence * 100).toFixed(1)}%`}
-        >
-          {token.text}
-        </span>
-      ))}
-    </div>
+  {tokensWithConfidence.map((token, idx) => (
+    <span
+      key={idx}
+      className="token"
+      style={{
+        backgroundColor: getConfidenceColor(token.category === "low" ? 0.1 : token.category === "medium" ? 0.5 : 0.9),
+        color: token.category === "high" ? "#1a1a1a" : "#ffffff",
+      }}
+      title={`Confidence: ${(token.confidence * 100).toFixed(1)}%`}
+    >
+      {token.text}
+    </span>
+  ))}
+</div>
   );
 };
 
