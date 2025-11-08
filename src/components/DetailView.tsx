@@ -13,6 +13,7 @@ interface ResponseData {
   response?: string;
   tokens?: string[];
   confidence_scores?: number[];
+  isCorrect?: number;
 }
 
 interface DetailViewProps {
@@ -40,6 +41,7 @@ const DetailView: React.FC<DetailViewProps> = ({ pointId, onClose }) => {
             response: result.r,
             tokens: result.t,
             confidence_scores: result.c,
+            isCorrect: result.x,
           });
         } else {
           throw new Error(`No data found for point ${pointId}`);
@@ -89,11 +91,13 @@ const DetailView: React.FC<DetailViewProps> = ({ pointId, onClose }) => {
     return "low";
   };
 
-  const tokenContainerRef = React.useRef<HTMLDivElement | null>(null);
-
   const renderTokens = () => {
     if (!data || !data.tokens || !data.confidence_scores) {
-      return <p className="response-text">{data?.response || ""}</p>;
+      return (
+        <p className="response-text">
+          {data?.response?.replace(/^\n+/, "") || ""}
+        </p>
+      );
     }
 
     // Combine tokens with confidence scores
@@ -102,8 +106,19 @@ const DetailView: React.FC<DetailViewProps> = ({ pointId, onClose }) => {
       confidence: data.confidence_scores![i] || 0,
     }));
 
+    // Strip leading newlines from the first token if it starts with them
+    if (
+      tokensWithConfidence.length > 0 &&
+      tokensWithConfidence[0].text.match(/^\n+/)
+    ) {
+      tokensWithConfidence[0].text = tokensWithConfidence[0].text.replace(
+        /^\n+/,
+        ""
+      );
+    }
+
     return (
-      <div className="token-container" ref={tokenContainerRef}>
+      <div className="token-container">
         {tokensWithConfidence.map((token, idx) => {
           const bucket = getConfidence(token.confidence);
           return (
@@ -125,50 +140,6 @@ const DetailView: React.FC<DetailViewProps> = ({ pointId, onClose }) => {
       </div>
     );
   };
-
-  // Merge tokens on the same line
-  React.useEffect(() => {
-    const container = tokenContainerRef.current;
-    if (!container) return;
-    const els = Array.from(
-      container.querySelectorAll<HTMLSpanElement>(".token")
-    );
-
-    // remove previous merges
-    els.forEach((el) => {
-      el.classList.remove("merge-start", "merge-mid", "merge-end");
-    });
-
-    const raf = requestAnimationFrame(() => {
-      let i = 0;
-      const tolerance = 6;
-      while (i < els.length) {
-        const start = i;
-        const startTop = els[i].offsetTop;
-        const bucket = els[i].dataset.bucket;
-        let j = i + 1;
-        while (
-          j < els.length &&
-          els[j].dataset.bucket === bucket &&
-          Math.abs(els[j].offsetTop - startTop) <= tolerance
-        ) {
-          j++;
-        }
-
-        const groupLen = j - start;
-        if (groupLen > 1) {
-          els[start].classList.add("merge-start");
-          for (let k = start + 1; k < j - 1; k++)
-            els[k].classList.add("merge-mid");
-          els[j - 1].classList.add("merge-end");
-        }
-
-        i = j;
-      }
-    });
-
-    return () => cancelAnimationFrame(raf);
-  }, [data?.tokens, data?.confidence_scores]);
 
   if (loading) {
     return (
@@ -195,14 +166,27 @@ const DetailView: React.FC<DetailViewProps> = ({ pointId, onClose }) => {
 
   return (
     <div className="detail-view-overlay" onClick={onClose}>
-      <div className="detail-view-content" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="detail-view-content"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          border:
+            data?.isCorrect === 1
+              ? "3px solid rgba(119, 221, 119, 0.7)"
+              : data?.isCorrect === 0
+              ? "3px solid rgba(255, 107, 107, 0.7)"
+              : "1px solid rgba(255, 255, 255, 0.1)",
+          boxShadow:
+            data?.isCorrect === 1
+              ? "inset 0 0 20px rgba(119, 221, 119, 0.15)"
+              : data?.isCorrect === 0
+              ? "inset 0 0 20px rgba(255, 107, 107, 0.15)"
+              : "none",
+        }}
+      >
         <button className="close-button" onClick={onClose}>
           ✕
         </button>
-
-        <div className="detail-header">
-          <h2>Point ID: {pointId}</h2>
-        </div>
 
         <div className="detail-body">
           <section className="detail-section">

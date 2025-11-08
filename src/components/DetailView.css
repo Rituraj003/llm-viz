@@ -124,46 +124,27 @@
   background: #2a2a2a;
   padding: 15px;
   border-radius: 8px;
-  line-height: 2;
-  display: flex;
-  flex-wrap: wrap;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-wrap: break-word;
 }
 
 .token {
-  padding: 3px 6px;
-  border-radius: 4px;
+  padding: 1px 2px;
+  border-radius: 0;
   font-family: "Monaco", "Courier New", monospace;
-  font-size: 14px;
+  font-size: 16px;
   cursor: default;
   transition: transform 0.1s;
-  display: inline-block;
-  white-space: pre-wrap;
-  word-break: break-word;
-  margin-right: 4px;
-  margin-bottom: 4px;
+  display: inline;
+  white-space: pre;
+  margin: 0;
 }
 
 .token:hover {
   transform: scale(1.05);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   z-index: 1;
-}
-
-.token.merge-start {
-  margin-right: 0;
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-}
-
-.token.merge-mid {
-  margin-right: 0;
-  border-radius: 0;
-}
-
-.token.merge-end {
-  margin-left: 0;
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
 }
 
 .confidence-legend {
