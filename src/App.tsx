@@ -13,7 +13,7 @@ function App() {
     const initDB = async () => {
       try {
         await responseDB.loadFromFile(
-          "https://github.com/Rituraj003/llm-viz/releases/download/v1.0.0/responses_all_with_logprobs.json",
+          "/api/fetchData",
           (loaded, total, fromCache) => {
             if (fromCache) {
               setIsLoadingFromCache(true);
