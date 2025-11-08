@@ -4,13 +4,23 @@
   "devCommand": "npm run dev",
   "installCommand": "npm install",
   "framework": "vite",
+  "rewrites": [
+    {
+      "source": "/responses_all_with_logprobs.json",
+      "destination": "/responses_all_with_logprobs.json.gz"
+    }
+  ],
   "headers": [
     {
-      "source": "/responses_all_with_logprobs.json.gz",
+      "source": "/responses_all_with_logprobs.json",
       "headers": [
         {
+          "key": "Content-Encoding",
+          "value": "gzip"
+        },
+        {
           "key": "Content-Type",
-          "value": "application/gzip"
+          "value": "application/json"
         },
         {
           "key": "Cache-Control",

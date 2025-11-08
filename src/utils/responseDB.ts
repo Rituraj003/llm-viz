@@ -3,8 +3,6 @@
  * This provides better performance than individual file fetches.
  */
 
-import pako from "pako";
-
 const DB_NAME = "GSM8K_Responses";
 const DB_VERSION = 2; // Incremented for logprob data
 const STORE_NAME = "responses";
@@ -100,10 +98,7 @@ class ResponseDB {
     if (!response.ok)
       throw new Error(`Failed to fetch: ${response.statusText}`);
 
-    const compressed = await response.arrayBuffer();
-    const decompressed = pako.ungzip(new Uint8Array(compressed));
-    const jsonString = new TextDecoder().decode(decompressed);
-    const data: ResponseData[] = JSON.parse(jsonString);
+    const data: ResponseData[] = await response.json();
 
     const transaction = this.db.transaction([STORE_NAME], "readwrite");
     const store = transaction.objectStore(STORE_NAME);
