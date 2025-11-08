@@ -689,6 +689,21 @@ const EmbeddingVisualization: React.FC = () => {
         <p className="subtitle">
           {data.length.toLocaleString()} points visualized with t-SNE.
         </p>
+        <p
+          style={{
+            fontSize: "12px",
+            color: "#888",
+            marginBottom: "16px",
+            fontStyle: "italic",
+            borderLeft: "2px solid #444",
+            paddingLeft: "10px",
+          }}
+        >
+          Model:{" "}
+          <strong style={{ color: "#aaa" }}>
+            mistralai/Mistral-7B-Instruct-v0.3
+          </strong>
+        </p>
         <button
           onClick={handleResetView}
           className="reset-button"

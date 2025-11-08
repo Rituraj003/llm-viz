@@ -4,7 +4,7 @@
  */
 
 const DB_NAME = "GSM8K_Responses";
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Incremented for logprob data
 const STORE_NAME = "responses";
 
 interface ResponseData {
@@ -12,7 +12,9 @@ interface ResponseData {
   p: string; // prompt
   r: string; // response
   t: string[]; // tokens
-  c: number[]; // confidence_scores
+  c: number[]; // confidence_scores (exp(logprob))
+  lp?: number[]; // chosen logprobs
+  lp2?: number[]; // second-best logprobs
   g?: string; // ground_truth
   a?: string; // predicted_answer
   x?: number; // correctness
@@ -38,6 +40,18 @@ class ResponseDB {
 
       request.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result;
+        const oldVersion = event.oldVersion;
+
+        console.log(`DB upgrade: v${oldVersion} -> v${DB_VERSION}`);
+
+        // If upgrading from v1 to v2, delete old store to force reload with new data
+        if (oldVersion === 1 && DB_VERSION === 2) {
+          if (db.objectStoreNames.contains(STORE_NAME)) {
+            db.deleteObjectStore(STORE_NAME);
+            console.log("Deleted old store to reload with logprob data");
+          }
+        }
+
         if (!db.objectStoreNames.contains(STORE_NAME)) {
           db.createObjectStore(STORE_NAME, { keyPath: "i" });
         }
@@ -136,28 +150,31 @@ class ResponseDB {
 
   async count(): Promise<number> {
     await this.init();
-    if (!this.db) throw new Error("DB not initialized");
+    if (!this.db) return 0;
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([STORE_NAME], "readonly");
+      const transaction = this.db!.transaction(STORE_NAME, "readonly");
       const store = transaction.objectStore(STORE_NAME);
       const request = store.count();
-
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
   }
 
+  // Clear all data from the database (useful for forcing reload)
   async clear(): Promise<void> {
     await this.init();
-    if (!this.db) throw new Error("DB not initialized");
+    if (!this.db) return;
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([STORE_NAME], "readwrite");
+      const transaction = this.db!.transaction(STORE_NAME, "readwrite");
       const store = transaction.objectStore(STORE_NAME);
       const request = store.clear();
-
-      request.onsuccess = () => resolve();
+      request.onsuccess = () => {
+        console.log("IndexedDB cleared");
+        this.loadPromise = null; // Reset load promise to allow reload
+        resolve();
+      };
       request.onerror = () => reject(request.error);
     });
   }

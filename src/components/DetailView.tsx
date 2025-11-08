@@ -1,11 +1,15 @@
 import React, { useEffect, useState } from "react";
 import "./DetailView.css";
 import { responseDB } from "../utils/responseDB";
-
-interface Token {
-  text: string;
-  confidence: number;
-}
+import {
+  computeTokenMetrics,
+  getMetricColor,
+  formatMetric,
+  type TokenMetrics,
+  type NormalizationMode,
+  type MetricType,
+  type GlobalStats,
+} from "../utils/confidenceMetrics";
 
 interface ResponseData {
   id: number;
@@ -13,6 +17,8 @@ interface ResponseData {
   response?: string;
   tokens?: string[];
   confidence_scores?: number[];
+  logprobs?: number[];
+  logprobs2?: number[];
   isCorrect?: number;
 }
 
@@ -25,6 +31,19 @@ const DetailView: React.FC<DetailViewProps> = ({ pointId, onClose }) => {
   const [data, setData] = useState<ResponseData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [normMode, setNormMode] = useState<NormalizationMode>("local");
+  const [metric, setMetric] = useState<MetricType>("confidence");
+  const [globalStats, setGlobalStats] = useState<GlobalStats | null>(null);
+  const [hoveredToken, setHoveredToken] = useState<TokenMetrics | null>(null);
+  const [showInfo, setShowInfo] = useState(false);
+
+  // Load global stats on mount
+  useEffect(() => {
+    fetch("/global_stats.json")
+      .then((res) => res.json())
+      .then((stats) => setGlobalStats(stats))
+      .catch((err) => console.error("Failed to load global stats:", err));
+  }, []);
 
   useEffect(() => {
     const fetchPointData = async () => {
@@ -41,6 +60,8 @@ const DetailView: React.FC<DetailViewProps> = ({ pointId, onClose }) => {
             response: result.r,
             tokens: result.t,
             confidence_scores: result.c,
+            logprobs: result.lp,
+            logprobs2: result.lp2,
             isCorrect: result.x,
           });
         } else {
@@ -56,43 +77,8 @@ const DetailView: React.FC<DetailViewProps> = ({ pointId, onClose }) => {
     fetchPointData();
   }, [pointId]);
 
-  // Get color based on confidence score (0-1)
-  // Green (high confidence) -> Yellow -> Red (low confidence)
-  const getConfidenceColor = (confidence: number): string => {
-    // Clamp confidence between 0 and 1
-    const c = Math.max(0, Math.min(1, confidence));
-
-    if (c >= 0.5) {
-      // Green to Yellow (high to medium confidence)
-      // c=1.0 -> rgb(34, 197, 94) (green)
-      // c=0.5 -> rgb(234, 179, 8) (yellow)
-      const ratio = (c - 0.5) * 2; // 0 to 1
-      const r = Math.round(34 + (234 - 34) * (1 - ratio));
-      const g = Math.round(197 + (179 - 197) * (1 - ratio));
-      const b = Math.round(94 + (8 - 94) * (1 - ratio));
-      return `rgb(${r}, ${g}, ${b})`;
-    } else {
-      // Yellow to Red (medium to low confidence)
-      // c=0.5 -> rgb(234, 179, 8) (yellow)
-      // c=0.0 -> rgb(239, 68, 68) (red)
-      const ratio = c * 2; // 0 to 1
-      const r = Math.round(239 + (234 - 239) * ratio);
-      const g = Math.round(68 + (179 - 68) * ratio);
-      const b = Math.round(68 + (8 - 68) * ratio);
-      return `rgb(${r}, ${g}, ${b})`;
-    }
-  };
-
-  // Helper to split by confidence (low, medium, or high)
-  const getConfidence = (c: number): "low" | "medium" | "high" => {
-    const v = Math.max(0, Math.min(1, c));
-    if (v >= 0.5) return "high";
-    if (v >= 0.25) return "medium";
-    return "low";
-  };
-
   const renderTokens = () => {
-    if (!data || !data.tokens || !data.confidence_scores) {
+    if (!data || !data.tokens) {
       return (
         <p className="response-text">
           {data?.response?.replace(/^\n+/, "") || ""}
@@ -100,45 +86,72 @@ const DetailView: React.FC<DetailViewProps> = ({ pointId, onClose }) => {
       );
     }
 
-    // Combine tokens with confidence scores
-    const tokensWithConfidence: Token[] = data.tokens.map((text, i) => ({
-      text,
-      confidence: data.confidence_scores![i] || 0,
-    }));
-
-    // Strip leading newlines from the first token if it starts with them
-    if (
-      tokensWithConfidence.length > 0 &&
-      tokensWithConfidence[0].text.match(/^\n+/)
-    ) {
-      tokensWithConfidence[0].text = tokensWithConfidence[0].text.replace(
-        /^\n+/,
-        ""
+    // Check if we have logprob data
+    if (!data.logprobs || !data.logprobs2) {
+      return (
+        <p className="response-text">
+          {data.response?.replace(/^\n+/, "") || ""}
+        </p>
       );
     }
 
-    return (
-      <div className="token-container">
-        {tokensWithConfidence.map((token, idx) => {
-          const bucket = getConfidence(token.confidence);
-          return (
-            <span
-              key={idx}
-              className={`token`}
-              data-index={idx}
-              data-bucket={bucket}
-              style={{
-                backgroundColor: getConfidenceColor(token.confidence),
-                color: token.confidence > 0.3 ? "#1a1a1a" : "#ffffff",
-              }}
-              title={`Confidence: ${(token.confidence * 100).toFixed(1)}%`}
-            >
-              {token.text}
-            </span>
-          );
-        })}
-      </div>
-    );
+    // Compute metrics
+    try {
+      const tokenMetrics = computeTokenMetrics(
+        data.tokens,
+        data.logprobs,
+        data.logprobs2,
+        normMode,
+        metric,
+        normMode === "global" ? globalStats || undefined : undefined
+      );
+
+      // Strip leading newlines from first token
+      if (tokenMetrics.length > 0 && tokenMetrics[0].token.match(/^\n+/)) {
+        tokenMetrics[0] = {
+          ...tokenMetrics[0],
+          token: tokenMetrics[0].token.replace(/^\n+/, ""),
+        };
+      }
+
+      const normalizedValue =
+        metric === "surprisal"
+          ? tokenMetrics.map((m) => m.normalizedSurprisal)
+          : metric === "confidence"
+          ? tokenMetrics.map((m) => m.normalizedConfidence)
+          : tokenMetrics.map((m) => m.normalizedGap);
+
+      return (
+        <div className="token-container">
+          {tokenMetrics.map((tm, idx) => {
+            const color = getMetricColor(normalizedValue[idx], metric);
+            return (
+              <span
+                key={idx}
+                className="token"
+                style={{
+                  backgroundColor: color,
+                  color: "#1a1a1a",
+                  cursor: "pointer",
+                }}
+                onMouseEnter={() => setHoveredToken(tm)}
+                onMouseLeave={() => setHoveredToken(null)}
+              >
+                {tm.token}
+              </span>
+            );
+          })}
+        </div>
+      );
+    } catch (err) {
+      console.error("Error computing metrics:", err);
+      // Fallback to simple display
+      return (
+        <p className="response-text">
+          {data.response?.replace(/^\n+/, "") || ""}
+        </p>
+      );
+    }
   };
 
   if (loading) {
@@ -195,28 +208,238 @@ const DetailView: React.FC<DetailViewProps> = ({ pointId, onClose }) => {
           </section>
 
           <section className="detail-section">
-            <h3>Model Response</h3>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "12px",
+              }}
+            >
+              <h3>Model Response</h3>
+              <div
+                style={{
+                  display: "flex",
+                  gap: "12px",
+                  fontSize: "13px",
+                  alignItems: "center",
+                }}
+              >
+                <button
+                  onClick={() => setShowInfo(!showInfo)}
+                  style={{
+                    background: "#2a2a2a",
+                    color: "#e0e0e0",
+                    border: "1px solid #444",
+                    borderRadius: "50%",
+                    width: "24px",
+                    height: "24px",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    fontWeight: "bold",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: 0,
+                  }}
+                  title="Show metrics information"
+                >
+                  ?
+                </button>
+                <div
+                  style={{ display: "flex", gap: "6px", alignItems: "center" }}
+                >
+                  <label style={{ color: "#999" }}>Metric:</label>
+                  <select
+                    value={metric}
+                    onChange={(e) => setMetric(e.target.value as MetricType)}
+                    style={{
+                      background: "#2a2a2a",
+                      color: "#e0e0e0",
+                      border: "1px solid #444",
+                      borderRadius: "4px",
+                      padding: "4px 8px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <option value="confidence">Confidence</option>
+                    <option value="surprisal">Surprisal (bits)</option>
+                    <option value="gap">Gap (nats)</option>
+                  </select>
+                </div>
+                <div
+                  style={{ display: "flex", gap: "6px", alignItems: "center" }}
+                >
+                  <label style={{ color: "#999" }}>Scale:</label>
+                  <select
+                    value={normMode}
+                    onChange={(e) =>
+                      setNormMode(e.target.value as NormalizationMode)
+                    }
+                    style={{
+                      background: "#2a2a2a",
+                      color: "#e0e0e0",
+                      border: "1px solid #444",
+                      borderRadius: "4px",
+                      padding: "4px 8px",
+                      cursor: "pointer",
+                    }}
+                    disabled={!globalStats}
+                  >
+                    <option value="local">Local</option>
+                    <option value="global">Global</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            {showInfo && (
+              <div
+                style={{
+                  background: "#2a2a2a",
+                  border: "1px solid #444",
+                  borderRadius: "8px",
+                  padding: "16px",
+                  marginBottom: "12px",
+                  fontSize: "13px",
+                  lineHeight: "1.6",
+                }}
+              >
+                <h4
+                  style={{
+                    marginTop: 0,
+                    marginBottom: "12px",
+                    color: "#e0e0e0",
+                  }}
+                >
+                  Metrics Explanation
+                </h4>
+                <div style={{ marginBottom: "12px" }}>
+                  <strong style={{ color: "#77dd77" }}>Confidence:</strong> A
+                  user-friendly metric (0-100%) showing how confident the model
+                  was in choosing each token. Higher values (green) indicate
+                  more confident predictions.
+                </div>
+                <div style={{ marginBottom: "12px" }}>
+                  <strong style={{ color: "#77dd77" }}>Surprisal:</strong> A
+                  technical metric measured in bits. Lower values (green)
+                  indicate tokens the model expected, while higher values (red)
+                  indicate surprising or unexpected tokens.
+                </div>
+                <div style={{ marginBottom: "12px" }}>
+                  <strong style={{ color: "#77dd77" }}>Gap:</strong> The
+                  difference between the chosen token's logprob and the
+                  second-best alternative, measured in nats. Higher values
+                  (green) indicate the model strongly preferred this token over
+                  alternatives.
+                </div>
+                <h4
+                  style={{
+                    marginTop: "16px",
+                    marginBottom: "12px",
+                    color: "#e0e0e0",
+                  }}
+                >
+                  Normalization Scales
+                </h4>
+                <div style={{ marginBottom: "12px" }}>
+                  <strong style={{ color: "#77dd77" }}>Local:</strong> Colors
+                  are normalized within this response only. Helps you see
+                  relative confidence patterns within a single answer.
+                </div>
+                <div>
+                  <strong style={{ color: "#77dd77" }}>Global:</strong> Colors
+                  are normalized across the entire dataset using 5th-95th
+                  percentiles. Allows comparison of confidence levels across
+                  different responses.
+                </div>
+              </div>
+            )}
+            <div
+              style={{
+                minHeight: "50px",
+                marginBottom: "8px",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              {hoveredToken ? (
+                <div
+                  style={{
+                    background: "#2a2a2a",
+                    border: "1px solid #444",
+                    borderRadius: "6px",
+                    padding: "8px 12px",
+                    fontSize: "12px",
+                    display: "flex",
+                    gap: "16px",
+                    width: "100%",
+                    alignItems: "center",
+                  }}
+                >
+                  <div style={{ whiteSpace: "pre" }}>
+                    <strong>Token:</strong> "{hoveredToken.token}"
+                  </div>
+                  <div>
+                    <strong>Confidence:</strong>{" "}
+                    {(hoveredToken.confidenceScore * 100).toFixed(1)}%
+                  </div>
+                  <div>
+                    <strong>Surprisal:</strong>{" "}
+                    {formatMetric(hoveredToken.surprisal, "surprisal")}
+                  </div>
+                  <div>
+                    <strong>Gap:</strong>{" "}
+                    {formatMetric(hoveredToken.gap, "gap")}
+                  </div>
+                </div>
+              ) : (
+                <div
+                  style={{
+                    color: "#666",
+                    fontSize: "12px",
+                    textAlign: "center",
+                    width: "100%",
+                  }}
+                >
+                  Hover over tokens to see detailed metrics
+                </div>
+              )}
+            </div>
             <div className="confidence-legend">
               <span className="legend-item">
                 <span
                   className="legend-color"
-                  style={{ backgroundColor: getConfidenceColor(0.75) }}
+                  style={{
+                    backgroundColor: getMetricColor(
+                      metric === "surprisal" ? 0.2 : 0.8,
+                      metric
+                    ),
+                  }}
                 />
-                High Confidence
+                {metric === "surprisal"
+                  ? "Low Surprisal"
+                  : "High " + (metric === "confidence" ? "Confidence" : "Gap")}
               </span>
               <span className="legend-item">
                 <span
                   className="legend-color"
-                  style={{ backgroundColor: getConfidenceColor(0.375) }}
+                  style={{ backgroundColor: getMetricColor(0.5, metric) }}
                 />
                 Medium
               </span>
               <span className="legend-item">
                 <span
                   className="legend-color"
-                  style={{ backgroundColor: getConfidenceColor(0.125) }}
+                  style={{
+                    backgroundColor: getMetricColor(
+                      metric === "surprisal" ? 0.8 : 0.2,
+                      metric
+                    ),
+                  }}
                 />
-                Low Confidence
+                {metric === "surprisal"
+                  ? "High Surprisal"
+                  : "Low " + (metric === "confidence" ? "Confidence" : "Gap")}
               </span>
             </div>
             {renderTokens()}

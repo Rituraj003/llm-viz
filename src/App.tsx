@@ -13,7 +13,7 @@ function App() {
     const initDB = async () => {
       try {
         await responseDB.loadFromFile(
-          "/responses_all.json",
+          "/responses_all_with_logprobs.json",
           (loaded, total, fromCache) => {
             if (fromCache) {
               setIsLoadingFromCache(true);
@@ -50,7 +50,7 @@ function App() {
             ? "Loading from cache..."
             : "Loading GSM8K Data..."}
         </h2>
-        {!isLoadingFromCache && <p>This is a one-time load (~60MB)</p>}
+        {!isLoadingFromCache && <p>This is a one-time load (~140MB)</p>}
         {isLoadingFromCache && <p>Using cached data</p>}
         <div
           style={{
