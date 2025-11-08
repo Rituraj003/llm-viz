@@ -13,7 +13,7 @@ function App() {
     const initDB = async () => {
       try {
         await responseDB.loadFromFile(
-          "/api/fetchData",
+          "/responses_all_with_logprobs.json",
           (loaded, total, fromCache) => {
             if (fromCache) {
               setIsLoadingFromCache(true);
