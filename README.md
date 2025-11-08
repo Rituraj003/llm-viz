@@ -16,6 +16,10 @@ Interactive visualization of 8,792 GSM8K math problems with model responses and 
 ## Quick Start
 
 ```bash
+# Clone the repository
+git clone https://github.com/Rituraj003/llm-viz.git
+cd llm-viz
+
 # Install dependencies
 npm install
 
@@ -28,7 +32,7 @@ npm run build
 
 ## How It Works
 
-1. **First Visit**: Loads 60MB of data into browser IndexedDB (one-time, ~20 seconds)
+1. **First Visit**: Loads ~140MB of data from GitHub into browser IndexedDB (one-time, ~20-30 seconds)
 2. **Explore**: Click any point on the visualization
 3. **View Details**: See prompt, response, and confidence-colored tokens
 4. **Future Visits**: Instant load from browser cache
@@ -42,7 +46,7 @@ npm run build
 
 ## Data
 
-- **7,473 GSM8K problems** from Mistral-7B-Instruct evaluation
+- **8,792 GSM8K problems** from Mistral-7B-Instruct evaluation
 - **t-SNE embeddings** for 2D visualization
 - **Token-level confidence scores** from log probabilities
 - **10 semantic clusters** of problem types
@@ -62,34 +66,11 @@ src/
 
 public/
 ├── gsm8k_embeddings_2d.json        # 2D coordinates (566KB)
-├── gsm8k_data_with_questions.json  # Questions (10MB)
-└── responses_all.json              # Responses + confidence (60MB)
+├── gsm8k_merged_data.json          # Merged data (10MB)
+├── global_stats.json               # Global statistics
+└── responses_all_with_logprobs.json # Responses + confidence (~140MB)
 ```
 
 ## License
 
 MIT
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-globalIgnores(['dist']),
-{
-files: ['**/*.{ts,tsx}'],
-extends: [
-// Other configs...
-// Enable lint rules for React
-reactX.configs['recommended-typescript'],
-// Enable lint rules for React DOM
-reactDom.configs.recommended,
-],
-languageOptions: {
-parserOptions: {
-project: ['./tsconfig.node.json', './tsconfig.app.json'],
-tsconfigRootDir: import.meta.dirname,
-},
-// other options...
-},
-},
-])
