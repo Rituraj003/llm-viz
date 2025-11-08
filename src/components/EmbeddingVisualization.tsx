@@ -6,6 +6,8 @@ import React, {
   useCallback,
 } from "react";
 import * as d3 from "d3";
+import Slider from "rc-slider";
+import "rc-slider/assets/index.css";
 import DetailView from "./DetailView";
 
 const CLUSTER_NAMES: { [key: number]: string } = {
@@ -21,6 +23,8 @@ const CLUSTER_NAMES: { [key: number]: string } = {
   9: "Measurement and Area Problems",
 };
 
+type CorrectnessFilterType = "all" | "correct" | "incorrect";
+
 // --- Helper Components ---
 
 const Tooltip: React.FC<{
@@ -28,35 +32,68 @@ const Tooltip: React.FC<{
   mousePos: { x: number; y: number };
 }> = ({ hoveredPoint, mousePos }) => {
   if (!hoveredPoint) return null;
+
+  const correctness = hoveredPoint.isCorrect === 1 ? "Correct" : "Incorrect";
+  const correctnessColor = hoveredPoint.isCorrect === 1 ? "#77dd77" : "#ff6b6b";
+  const bgTint =
+    hoveredPoint.isCorrect === 1
+      ? "rgba(50, 218, 50, 0.15)"
+      : "rgba(251, 46, 46, 0.15)";
+  const borderColor =
+    hoveredPoint.isCorrect === 1
+      ? "rgba(119, 221, 119, 0.3)"
+      : "rgba(255, 107, 107, 0.3)";
+
   return (
     <div
       style={{
         position: "fixed",
         left: mousePos.x + 15,
         top: mousePos.y,
-        background: "rgba(40, 40, 40, 0.9)",
+        background: bgTint,
+        backdropFilter: "blur(10px)",
         color: "#fff",
-        padding: "8px 12px",
+        padding: "12px 14px",
         borderRadius: "6px",
         boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
         pointerEvents: "none",
         fontSize: "13px",
         zIndex: 1000,
-        fontFamily: "sans-serif",
+        fontFamily:
+          "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
         transition: "opacity 0.2s, transform 0.2s",
         opacity: 1,
         transform: "translateY(-100%)",
+        border: `1px solid ${borderColor}`,
       }}
     >
-      <strong>{CLUSTER_NAMES[hoveredPoint.cluster]}</strong>
-      <div style={{ marginTop: "4px", color: "#ccc" }}>
-        Point ID: {hoveredPoint.id}
-        <br />
-        x: {hoveredPoint.x.toFixed(3)}
-        <br />
-        y: {hoveredPoint.y.toFixed(3)}
-      </div>
-      <div style={{ marginTop: "4px", color: "#ccc" }}>
+      <strong style={{ color: "#EAEAEA" }}>
+        {CLUSTER_NAMES[hoveredPoint.cluster]}
+      </strong>
+      {hoveredPoint.isCorrect !== undefined && (
+        <div
+          style={{
+            marginTop: "6px",
+            color: correctnessColor,
+            fontWeight: "bold",
+          }}
+        >
+          {correctness}
+        </div>
+      )}
+      <div
+        style={{
+          marginTop: "8px",
+          color: "#D1D1D1",
+          maxWidth: "400px",
+          whiteSpace: "normal",
+          wordWrap: "break-word",
+          overflow: "auto",
+          maxHeight: "150px",
+          fontSize: "12px",
+          lineHeight: "1.4",
+        }}
+      >
         {hoveredPoint.question}
       </div>
     </div>
@@ -70,10 +107,19 @@ const Legend: React.FC<{
 }> = ({ clusterColors, activeClusters, onToggleCluster }) => {
   return (
     <>
-      <h4 style={{ marginBottom: "15px", marginTop: "5px", color: "#E0E0E0" }}>
+      <h4
+        style={{
+          marginBottom: "15px",
+          marginTop: "5px",
+          color: "#E0E0E0",
+          fontWeight: 500,
+        }}
+      >
         Clusters
       </h4>
-      <div style={{ maxHeight: "400px", overflowY: "auto" }}>
+      <div
+        style={{ maxHeight: "400px", overflowY: "auto", paddingRight: "10px" }}
+      >
         {[...clusterColors.entries()]
           .sort(([a], [b]) => a - b)
           .map(([cluster, color]) => (
@@ -85,7 +131,7 @@ const Legend: React.FC<{
                 alignItems: "center",
                 marginBottom: "10px",
                 cursor: "pointer",
-                opacity: activeClusters.has(cluster) ? 1 : 0.5,
+                opacity: activeClusters.has(cluster) ? 1 : 0.4,
                 transition: "opacity 0.2s",
               }}
             >
@@ -96,9 +142,12 @@ const Legend: React.FC<{
                   backgroundColor: color,
                   borderRadius: "50%",
                   marginRight: "10px",
+                  boxShadow: `0 0 5px ${color}`,
                 }}
               />
-              <span style={{ fontSize: "14px" }}>{CLUSTER_NAMES[cluster]}</span>
+              <span style={{ fontSize: "15px", color: "#D1D1D1" }}>
+                {CLUSTER_NAMES[cluster]}
+              </span>
             </div>
           ))}
       </div>
@@ -106,74 +155,187 @@ const Legend: React.FC<{
   );
 };
 
-const ConfidenceSlider: React.FC<{
-  range: [number, number];
-  onChange: (range: [number, number]) => void;
-}> = ({ range, onChange }) => {
-  const [localMin, setLocalMin] = useState(range[0]);
-  const [localMax, setLocalMax] = useState(range[1]);
-
-  useEffect(() => {
-    setLocalMin(range[0]);
-    setLocalMax(range[1]);
-  }, [range]);
-
-  const handleMinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseFloat(e.target.value);
-    const newMin = Math.min(value, localMax - 0.01);
-    setLocalMin(newMin);
-    onChange([newMin, localMax]);
+const CorrectnessLegend: React.FC<{ isFloating?: boolean }> = ({
+  isFloating,
+}) => {
+  const legendItemStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    marginBottom: "10px",
+    fontSize: "14px",
+    color: isFloating ? "#EAEAEA" : "#D1D1D1",
+  };
+  const circleBaseStyle: React.CSSProperties = {
+    width: "14px",
+    height: "14px",
+    borderRadius: "50%",
+    marginRight: "10px",
   };
 
-  const handleMaxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseFloat(e.target.value);
-    const newMax = Math.max(value, localMin + 0.01);
-    setLocalMax(newMax);
-    onChange([localMin, newMax]);
+  return (
+    <>
+      <h4
+        style={{
+          marginBottom: "15px",
+          marginTop: "5px",
+          color: "#E0E0E0",
+          fontWeight: 500,
+          textAlign: isFloating ? "center" : "left",
+        }}
+      >
+        Answer Type
+      </h4>
+      <div>
+        <div style={legendItemStyle}>
+          <div
+            style={{
+              ...circleBaseStyle,
+              backgroundColor: "#77dd77",
+              boxShadow: "0 0 5px #77dd77",
+            }}
+          ></div>
+          <span>Correct</span>
+        </div>
+        <div style={legendItemStyle}>
+          <div
+            style={{
+              ...circleBaseStyle,
+              border: "1.5px solid #ff6b6b",
+              opacity: 0.8,
+            }}
+          ></div>
+          <span>Incorrect</span>
+        </div>
+      </div>
+    </>
+  );
+};
+
+const CorrectnessFilter: React.FC<{
+  currentFilter: CorrectnessFilterType;
+  onFilterChange: (filter: CorrectnessFilterType) => void;
+}> = ({ currentFilter, onFilterChange }) => {
+  const buttonStyle: React.CSSProperties = {
+    flex: 1,
+    padding: "8px 12px",
+    fontSize: "13px",
+    border: "1px solid #555",
+    backgroundColor: "#3a3a3a",
+    color: "#ccc",
+    cursor: "pointer",
+    transition: "background-color 0.2s, color 0.2s",
+    textAlign: "center",
+  };
+
+  const activeButtonStyle: React.CSSProperties = {
+    ...buttonStyle,
+    backgroundColor: "#5a5a5a",
+    color: "#fff",
+    borderColor: "#777",
   };
 
   return (
     <div style={{ marginTop: "20px" }}>
-      <h4 style={{ marginBottom: "10px", color: "#E0E0E0" }}>
-        Confidence Filter
+      <h4 style={{ marginBottom: "10px", color: "#E0E0E0", fontWeight: 500 }}>
+        Filter by Answer
       </h4>
-      <div style={{ padding: "10px 5px" }}>
-        <div style={{ marginBottom: "15px" }}>
-          <label style={{ fontSize: "12px", color: "#B0B0B0", display: "block", marginBottom: "5px" }}>
-            Min: {(localMin * 100).toFixed(0)}%
-          </label>
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.01"
-            value={localMin}
-            onChange={handleMinChange}
-            style={{ width: "100%", cursor: "pointer" }}
-          />
-        </div>
-        <div>
-          <label style={{ fontSize: "12px", color: "#B0B0B0", display: "block", marginBottom: "5px" }}>
-            Max: {(localMax * 100).toFixed(0)}%
-          </label>
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.01"
-            value={localMax}
-            onChange={handleMaxChange}
-            style={{ width: "100%", cursor: "pointer" }}
-          />
-        </div>
-        <div style={{ marginTop: "10px", fontSize: "11px", color: "#888" }}>
-          Showing {(localMin * 100).toFixed(0)}% - {(localMax * 100).toFixed(0)}% confidence
-        </div>
+      <div style={{ display: "flex", borderRadius: "6px", overflow: "hidden" }}>
+        <button
+          style={currentFilter === "all" ? activeButtonStyle : buttonStyle}
+          onClick={() => onFilterChange("all")}
+        >
+          All
+        </button>
+        <button
+          style={currentFilter === "correct" ? activeButtonStyle : buttonStyle}
+          onClick={() => onFilterChange("correct")}
+        >
+          Correct
+        </button>
+        <button
+          style={
+            currentFilter === "incorrect" ? activeButtonStyle : buttonStyle
+          }
+          onClick={() => onFilterChange("incorrect")}
+        >
+          Incorrect
+        </button>
       </div>
     </div>
   );
 };
 
+const ConfidenceSlider: React.FC<{
+  minRange: number;
+  maxRange: number;
+  currentRange: [number, number];
+  onRangeChange: (range: [number, number]) => void;
+}> = ({ minRange, maxRange, currentRange, onRangeChange }) => {
+  return (
+    <div style={{ marginTop: "20px" }}>
+      <h4 style={{ marginBottom: "10px", color: "#E0E0E0", fontWeight: 500 }}>
+        Confidence Range
+      </h4>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          marginBottom: "12px",
+          fontSize: "12px",
+          color: "#999",
+        }}
+      >
+        <span>{minRange.toFixed(2)}</span>
+        <span style={{ color: "#4CAF50", fontWeight: 500 }}>
+          {currentRange[0].toFixed(2)} - {currentRange[1].toFixed(2)}
+        </span>
+        <span>{maxRange.toFixed(2)}</span>
+      </div>
+      <div style={{ padding: "0 2px" }}>
+        <Slider
+          range
+          min={minRange}
+          max={maxRange}
+          step={0.01}
+          value={currentRange}
+          onChange={(val) => onRangeChange(val as [number, number])}
+          trackStyle={[
+            {
+              background: "linear-gradient(90deg, #ffc107 0%, #4CAF50 100%)",
+              height: 6,
+            },
+          ]}
+          railStyle={{
+            background:
+              "linear-gradient(90deg, #ff6b6b 0%, #ffc107 50%, #4CAF50 100%)",
+            height: 4,
+            opacity: 0.3,
+          }}
+          handleStyle={[
+            {
+              backgroundColor: "#4CAF50",
+              border: "2px solid #2d5f2e",
+              height: 18,
+              width: 18,
+              marginTop: -7,
+              boxShadow: "0 0 8px rgba(76, 175, 80, 0.6)",
+              cursor: "grab",
+            },
+            {
+              backgroundColor: "#4CAF50",
+              border: "2px solid #2d5f2e",
+              height: 18,
+              width: 18,
+              marginTop: -7,
+              boxShadow: "0 0 8px rgba(76, 175, 80, 0.6)",
+              cursor: "grab",
+            },
+          ]}
+        />
+      </div>
+    </div>
+  );
+};
 // --- Main Component ---
 
 interface DataPoint {
@@ -201,7 +363,12 @@ const EmbeddingVisualization: React.FC = () => {
   const [activeClusters, setActiveClusters] = useState<Set<number>>(new Set());
   const [transform, setTransform] = useState(d3.zoomIdentity);
   const [selectedPointId, setSelectedPointId] = useState<number | null>(null);
-  const [confidenceRange, setConfidenceRange] = useState<[number, number]>([0, 1]);
+  const [correctnessFilter, setCorrectnessFilter] =
+    useState<CorrectnessFilterType>("all");
+  const [confidenceRange, setConfidenceRange] = useState<[number, number]>([
+    0, 1,
+  ]);
+  const [activeTab, setActiveTab] = useState<"filters" | "clusters">("filters");
 
   const dimensions = {
     width: 1000,
@@ -212,56 +379,42 @@ const EmbeddingVisualization: React.FC = () => {
   // --- Data Loading ---
   useEffect(() => {
     setLoading(true);
-    Promise.all([
-      fetch("/gsm8k_embeddings_2d.json").then((res) => {
-        if (!res.ok) throw new Error(`Failed to load data: ${res.statusText}`);
-        return res.json();
-      }),
-      fetch("/gsm8k_data_with_questions.json").then((res) => {
-        if (!res.ok) throw new Error(`Failed to load data: ${res.statusText}`);
-        return res.json();
-      }),
-      fetch("/responses_all.json").then((res) => {
-        if (!res.ok) throw new Error(`Failed to load data: ${res.statusText}`);
-        return res.json();
-      }),
-    ])
-      .then(
-        ([embeddingData, questionData, responsesData]: [
-          Omit<DataPoint, "question" | "isCorrect" | "avgConfidence">[],
-          { id: number; question: string }[],
-          { i: number; x: number; c?: number[] }[]
-        ]) => {
-          const questionMap = new Map(
-            questionData.map((d) => [d.id, d.question])
-          );
-          const correctnessMap = new Map(
-            responsesData.map((d) => [d.i, d.x])
-          );
-          const confidenceMap = new Map(
-            responsesData.map((d) => {
-              const avgConf = d.c && d.c.length > 0
-                ? d.c.reduce((sum, val) => sum + val, 0) / d.c.length
-                : 0.5;
-              return [d.i, avgConf];
-            })
-          );
-          const mergedData = embeddingData.map((d) => ({
-            ...d,
-            question: questionMap.get(d.id) || "",
-            isCorrect: correctnessMap.get(d.id),
-            avgConfidence: confidenceMap.get(d.id),
-          }));
-          setData(mergedData);
-          setActiveClusters(new Set(mergedData.map((p) => p.cluster)));
-          setLoading(false);
+    fetch("/gsm8k_merged_data.json")
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`Failed to load merged data: ${res.statusText}`);
         }
-      )
+        return res.json();
+      })
+      .then((mergedData: DataPoint[]) => {
+        setData(mergedData);
+        setActiveClusters(new Set(mergedData.map((p) => p.cluster)));
+
+        // Calculate min/max confidence
+        const confidences = mergedData
+          .map((d) => d.avgConfidence)
+          .filter((c): c is number => c !== undefined);
+        const minConfidence = Math.min(...confidences);
+        const maxConfidence = Math.max(...confidences);
+        setConfidenceRange([minConfidence, maxConfidence]);
+
+        setLoading(false);
+      })
       .catch((err) => {
         setError(err.message);
         setLoading(false);
       });
   }, []);
+
+  // Calculate actual min/max confidence from data for slider display
+  const confidenceDataRange = useMemo(() => {
+    if (data.length === 0) return [0, 1];
+    const confidences = data
+      .map((d) => d.avgConfidence)
+      .filter((c): c is number => c !== undefined);
+    if (confidences.length === 0) return [0, 1];
+    return [Math.min(...confidences), Math.max(...confidences)];
+  }, [data]);
 
   // --- Memoized Scales & Data ---
   const { xScale, yScale, clusterColors, filteredData } = useMemo(() => {
@@ -283,7 +436,7 @@ const EmbeddingVisualization: React.FC = () => {
       ])
       .nice();
 
-    const colorScale = d3.scaleOrdinal(d3.schemeCategory10);
+    const colorScale = d3.scaleOrdinal(d3.schemeTableau10);
     const clusterColors = new Map<number, string>();
     const clusters = [...new Set(data.map((d) => d.cluster))];
     clusters.forEach((c) => clusterColors.set(c, colorScale(String(c))));
@@ -291,15 +444,26 @@ const EmbeddingVisualization: React.FC = () => {
     const filteredData = data.filter((d) => {
       // Filter by cluster
       if (!activeClusters.has(d.cluster)) return false;
-      // Filter by confidence range
+
+      // Filter by confidence
       if (d.avgConfidence !== undefined) {
-        return d.avgConfidence >= confidenceRange[0] && d.avgConfidence <= confidenceRange[1];
+        if (
+          d.avgConfidence < confidenceRange[0] ||
+          d.avgConfidence > confidenceRange[1]
+        ) {
+          return false;
+        }
       }
+
+      // Filter by correctness
+      if (correctnessFilter === "correct" && d.isCorrect !== 1) return false;
+      if (correctnessFilter === "incorrect" && d.isCorrect !== 0) return false;
+
       return true;
     });
 
     return { xScale, yScale, clusterColors, filteredData };
-  }, [data, activeClusters, confidenceRange, dimensions]);
+  }, [data, activeClusters, correctnessFilter, confidenceRange, dimensions]);
 
   // --- Canvas Drawing ---
   const drawPoints = useCallback(
@@ -318,59 +482,57 @@ const EmbeddingVisualization: React.FC = () => {
 
       ctx.clearRect(0, 0, width, height);
 
+      const pointRadius = 3.5;
+
       filteredData.forEach((d) => {
         const cx = currentTransform.applyX(xScale(d.x));
         const cy = currentTransform.applyY(yScale(d.y));
 
         if (cx < 0 || cx > width || cy < 0 || cy > height) return;
 
+        ctx.beginPath();
+        ctx.arc(cx, cy, pointRadius, 0, 2 * Math.PI);
+
         const pointColor = clusterColors.get(d.cluster) || "#999";
 
-        // Draw checkmark or cross based on correctness (no background circle)
-        if (d.isCorrect !== undefined) {
-          ctx.globalAlpha = 1;
-          ctx.font = "bold 12px Arial";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.fillStyle = pointColor; // Use cluster color
-          
-          if (d.isCorrect === 1) {
-            // Correct - draw checkmark (✓)
-            ctx.fillText("✓", cx, cy);
-          } else {
-            // Incorrect - draw cross (✗)
-            ctx.fillText("✗", cx, cy);
-          }
+        if (d.isCorrect === 1) {
+          ctx.fillStyle = pointColor;
+          ctx.globalAlpha = 0.9;
+          ctx.fill();
+        } else if (d.isCorrect === 0) {
+          ctx.strokeStyle = pointColor;
+          ctx.globalAlpha = 0.6;
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        } else {
+          ctx.fillStyle = pointColor;
+          ctx.globalAlpha = 0.3;
+          ctx.fill();
         }
       });
 
       if (hoveredPoint) {
         const cx = currentTransform.applyX(xScale(hoveredPoint.x));
         const cy = currentTransform.applyY(yScale(hoveredPoint.y));
-        const hoverColor = clusterColors.get(hoveredPoint.cluster) || "#999";
-        
-        // Draw a highlight circle for hovered point
-        ctx.beginPath();
-        ctx.arc(cx, cy, 8, 0, 2 * Math.PI);
-        ctx.strokeStyle = "#fff";
-        ctx.lineWidth = 2;
-        ctx.globalAlpha = 0.5;
-        ctx.stroke();
+        const hoverColor = clusterColors.get(hoveredPoint.cluster) || "#FFF";
 
-        // Redraw the symbol larger for hovered point
-        if (hoveredPoint.isCorrect !== undefined) {
-          ctx.globalAlpha = 1;
-          ctx.font = "bold 16px Arial";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.fillStyle = hoverColor; // Use cluster color
-          
-          if (hoveredPoint.isCorrect === 1) {
-            ctx.fillText("✓", cx, cy);
-          } else {
-            ctx.fillText("✗", cx, cy);
-          }
+        ctx.shadowColor = hoverColor;
+        ctx.shadowBlur = 15;
+        ctx.globalAlpha = 1;
+
+        ctx.beginPath();
+        ctx.arc(cx, cy, pointRadius * 2.5, 0, 2 * Math.PI);
+
+        if (hoveredPoint.isCorrect === 1) {
+          ctx.fillStyle = hoverColor;
+          ctx.fill();
+        } else {
+          ctx.strokeStyle = hoverColor;
+          ctx.lineWidth = 2;
+          ctx.stroke();
         }
+
+        ctx.shadowBlur = 0;
       }
     },
     [dimensions, filteredData, hoveredPoint, xScale, yScale, clusterColors]
@@ -387,13 +549,11 @@ const EmbeddingVisualization: React.FC = () => {
 
     if (!svg || !canvas) return;
 
-    // Axes
-    const xAxis = d3.axisBottom(
-      xScale.copy().domain(transform.rescaleX(xScale).domain())
-    );
-    const yAxis = d3.axisLeft(
-      yScale.copy().domain(transform.rescaleY(yScale).domain())
-    );
+    const tx = transform.rescaleX(xScale);
+    const ty = transform.rescaleY(yScale);
+
+    const xAxis = d3.axisBottom(tx);
+    const yAxis = d3.axisLeft(ty);
 
     svg.selectAll(".x-axis").remove();
     svg.selectAll(".y-axis").remove();
@@ -413,7 +573,6 @@ const EmbeddingVisualization: React.FC = () => {
       .attr("transform", `translate(${dimensions.margin.left}, 0)`)
       .call(yAxis);
 
-    // Zoom
     const zoom = d3
       .zoom<HTMLCanvasElement, unknown>()
       .scaleExtent([0.8, 40])
@@ -425,12 +584,10 @@ const EmbeddingVisualization: React.FC = () => {
         setTransform(event.transform);
       });
 
-    canvas.call(zoom as any); // Enable zoom on canvas (including scroll-to-zoom)
-    svg.call(zoom as any); // Also apply zoom to SVG overlay for consistency
+    canvas.call(zoom as any);
 
     return () => {
       canvas.on(".zoom", null);
-      svg.on(".zoom", null);
     };
   }, [xScale, yScale, transform, dimensions]);
 
@@ -445,16 +602,17 @@ const EmbeddingVisualization: React.FC = () => {
       const my = event.clientY - rect.top;
 
       let nearest: DataPoint | null = null;
-      let minDist = 20; // pixel radius
+      let minDist = 15;
 
-      for (const d of filteredData) {
-        const cx = transform.applyX(xScale(d.x));
-        const cy = transform.applyY(yScale(d.y));
-        const dist = Math.sqrt((cx - mx) ** 2 + (cy - my) ** 2);
-        if (dist < minDist) {
-          minDist = dist;
-          nearest = d;
-        }
+      const quadtree = d3
+        .quadtree<DataPoint>()
+        .x((d) => transform.applyX(xScale(d.x)))
+        .y((d) => transform.applyY(yScale(d.y)))
+        .addAll(filteredData);
+
+      const found = quadtree.find(mx, my, minDist);
+      if (found) {
+        nearest = found;
       }
 
       setHoveredPoint(nearest);
@@ -463,26 +621,9 @@ const EmbeddingVisualization: React.FC = () => {
 
     const handleMouseLeave = () => setHoveredPoint(null);
 
-    const handleClick = (event: MouseEvent) => {
-      const rect = canvas.getBoundingClientRect();
-      const mx = event.clientX - rect.left;
-      const my = event.clientY - rect.top;
-
-      let nearest: DataPoint | null = null;
-      let minDist = 20; // pixel radius for clickable area
-
-      for (const d of filteredData) {
-        const cx = transform.applyX(xScale(d.x));
-        const cy = transform.applyY(yScale(d.y));
-        const dist = Math.sqrt((cx - mx) ** 2 + (cy - my) ** 2);
-        if (dist < minDist) {
-          minDist = dist;
-          nearest = d;
-        }
-      }
-
-      if (nearest) {
-        setSelectedPointId(nearest.id);
+    const handleClick = (_event: MouseEvent) => {
+      if (hoveredPoint) {
+        setSelectedPointId(hoveredPoint.id);
       }
     };
 
@@ -496,7 +637,7 @@ const EmbeddingVisualization: React.FC = () => {
       canvas.removeEventListener("mouseleave", handleMouseLeave);
       canvas.removeEventListener("click", handleClick);
     };
-  }, [filteredData, transform, xScale, yScale]);
+  }, [filteredData, transform, xScale, yScale, hoveredPoint]);
 
   // --- UI Handlers ---
   const handleToggleCluster = (cluster: number) => {
@@ -512,27 +653,20 @@ const EmbeddingVisualization: React.FC = () => {
   };
 
   const handleResetView = () => {
-    const svg = d3.select(svgRef.current);
     const canvas = d3.select(canvasRef.current);
-    if (!svg || !canvas) return;
-
-    // Reset zoom
-    const zoom = d3.zoom().on("zoom", (event) => setTransform(event.transform));
+    if (!canvas) return;
 
     canvas
       .transition()
       .duration(750)
-      .call(zoom.transform as any, d3.zoomIdentity);
-    svg
-      .transition()
-      .duration(750)
-      .call(zoom.transform as any, d3.zoomIdentity);
+      .call(
+        d3.zoom<HTMLCanvasElement, unknown>().transform as any,
+        d3.zoomIdentity
+      );
 
-    // Reset all clusters to visible
     setActiveClusters(new Set(data.map((p) => p.cluster)));
-    
-    // Reset confidence range
-    setConfidenceRange([0, 1]);
+    setCorrectnessFilter("all");
+    setConfidenceRange(confidenceDataRange as [number, number]);
   };
 
   // --- Render ---
@@ -541,31 +675,116 @@ const EmbeddingVisualization: React.FC = () => {
   if (error) return <div className="status-message error">Error: {error}</div>;
 
   return (
-    <div className="visualization-container">
+    <div
+      className="visualization-container"
+      style={{ fontFamily: "Inter, sans-serif" }}
+    >
       <div className="sidebar">
-        <h2 className="title">GSM8K Embeddings</h2>
+        <h2
+          className="title"
+          style={{ fontWeight: 700, letterSpacing: "-0.5px" }}
+        >
+          GSM8K Embeddings
+        </h2>
         <p className="subtitle">
           {data.length.toLocaleString()} points visualized with t-SNE.
         </p>
-        <button onClick={handleResetView} className="reset-button">
+        <button
+          onClick={handleResetView}
+          className="reset-button"
+          style={{
+            background: "linear-gradient(to right, #4f4f4f, #3a3a3a)",
+            border: "1px solid #666",
+            boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
+          }}
+        >
           Reset View
         </button>
-        <hr className="divider" />
-        <ConfidenceSlider
-          range={confidenceRange}
-          onChange={setConfidenceRange}
-        />
-        <hr className="divider" />
-        <Legend
-          clusterColors={clusterColors}
-          activeClusters={activeClusters}
-          onToggleCluster={handleToggleCluster}
-        />
+
+        {/* Tab Navigation */}
+        <div
+          style={{
+            display: "flex",
+            borderBottom: "1px solid #444",
+            marginTop: "20px",
+            marginBottom: "15px",
+          }}
+        >
+          <button
+            onClick={() => setActiveTab("filters")}
+            style={{
+              flex: 1,
+              padding: "10px 12px",
+              background: activeTab === "filters" ? "#3a3a3a" : "transparent",
+              border: "none",
+              color: activeTab === "filters" ? "#4CAF50" : "#999",
+              cursor: "pointer",
+              fontSize: "13px",
+              fontWeight: activeTab === "filters" ? 600 : 400,
+              borderBottom:
+                activeTab === "filters" ? "2px solid #4CAF50" : "none",
+              transition: "all 0.2s",
+            }}
+          >
+            Filters
+          </button>
+          <button
+            onClick={() => setActiveTab("clusters")}
+            style={{
+              flex: 1,
+              padding: "10px 12px",
+              background: activeTab === "clusters" ? "#3a3a3a" : "transparent",
+              border: "none",
+              color: activeTab === "clusters" ? "#4CAF50" : "#999",
+              cursor: "pointer",
+              fontSize: "13px",
+              fontWeight: activeTab === "clusters" ? 600 : 400,
+              borderBottom:
+                activeTab === "clusters" ? "2px solid #4CAF50" : "none",
+              transition: "all 0.2s",
+            }}
+          >
+            Clusters
+          </button>
+        </div>
+
+        {/* Filters Tab */}
+        {activeTab === "filters" && (
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "15px" }}
+          >
+            <CorrectnessFilter
+              currentFilter={correctnessFilter}
+              onFilterChange={setCorrectnessFilter}
+            />
+            <ConfidenceSlider
+              minRange={confidenceDataRange[0]}
+              maxRange={confidenceDataRange[1]}
+              currentRange={confidenceRange}
+              onRangeChange={setConfidenceRange}
+            />
+          </div>
+        )}
+
+        {/* Clusters Tab */}
+        {activeTab === "clusters" && (
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            <Legend
+              clusterColors={clusterColors}
+              activeClusters={activeClusters}
+              onToggleCluster={handleToggleCluster}
+            />
+          </div>
+        )}
       </div>
       <div className="main-content">
         <div
           className="chart-area"
-          style={{ width: dimensions.width, height: dimensions.height }}
+          style={{
+            width: dimensions.width,
+            height: dimensions.height,
+            position: "relative",
+          }}
         >
           <canvas
             ref={canvasRef}
@@ -573,7 +792,7 @@ const EmbeddingVisualization: React.FC = () => {
               position: "absolute",
               top: 0,
               left: 0,
-              pointerEvents: "all", // Capture mouse events for hover
+              pointerEvents: "all",
             }}
           />
           <svg
@@ -584,11 +803,26 @@ const EmbeddingVisualization: React.FC = () => {
               position: "absolute",
               top: 0,
               left: 0,
-              pointerEvents: "none", // Pass mouse events to canvas
+              pointerEvents: "none",
             }}
           >
             {/* Axes are drawn here by D3 */}
           </svg>
+          <div
+            style={{
+              position: "absolute",
+              top: "20px",
+              left: "80px",
+              backgroundColor: "rgba(42, 42, 42, 0.8)",
+              backdropFilter: "blur(5px)",
+              borderRadius: "8px",
+              padding: "15px",
+              border: "1px solid #444",
+              zIndex: 10,
+            }}
+          >
+            <CorrectnessLegend isFloating={true} />
+          </div>
         </div>
         <Tooltip hoveredPoint={hoveredPoint} mousePos={mousePos} />
         {selectedPointId !== null && (
