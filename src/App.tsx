@@ -13,7 +13,7 @@ function App() {
     const initDB = async () => {
       try {
         await responseDB.loadFromFile(
-          "/responses_all_with_logprobs.json.gz",
+          "https://huggingface.co/datasets/YOUR_USERNAME/llm-viz-responses/resolve/main/responses_all_with_logprobs.json",
           (loaded, total, fromCache) => {
             if (fromCache) {
               setIsLoadingFromCache(true);
