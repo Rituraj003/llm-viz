@@ -417,7 +417,14 @@ const EmbeddingVisualization: React.FC = () => {
   }, [data]);
 
   // --- Memoized Scales & Data ---
-  const { xScale, yScale, clusterColors, filteredData } = useMemo(() => {
+  const {
+    xScale,
+    yScale,
+    clusterColors,
+    filteredData,
+    visibleAverageConfidence,
+    visibleConfidenceCount,
+  } = useMemo(() => {
     const xScale = d3
       .scaleLinear()
       .domain(d3.extent(data, (d) => d.x) as [number, number])
@@ -462,7 +469,24 @@ const EmbeddingVisualization: React.FC = () => {
       return true;
     });
 
-    return { xScale, yScale, clusterColors, filteredData };
+    const confidenceValues = filteredData
+      .map((d) => d.avgConfidence)
+      .filter((c): c is number => c !== undefined);
+
+    const visibleAverageConfidence =
+      confidenceValues.length > 0
+        ? confidenceValues.reduce((sum, value) => sum + value, 0) /
+          confidenceValues.length
+        : null;
+
+    return {
+      xScale,
+      yScale,
+      clusterColors,
+      filteredData,
+      visibleAverageConfidence,
+      visibleConfidenceCount: confidenceValues.length,
+    };
   }, [data, activeClusters, correctnessFilter, confidenceRange, dimensions]);
 
   // --- Canvas Drawing ---
@@ -837,6 +861,54 @@ const EmbeddingVisualization: React.FC = () => {
             }}
           >
             <CorrectnessLegend isFloating={true} />
+          </div>
+          <div
+            style={{
+              position: "absolute",
+              top: "20px",
+              right: "80px",
+              backgroundColor: "rgba(20, 20, 20, 0.85)",
+              borderRadius: "8px",
+              padding: "12px 16px",
+              border: "1px solid rgba(255, 255, 255, 0.08)",
+              color: "#EAEAEA",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.35)",
+              zIndex: 10,
+              minWidth: "180px",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "12px",
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                color: "#9CA3AF",
+                marginBottom: "6px",
+              }}
+            >
+              Visible Selection
+            </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "baseline",
+                gap: "8px",
+              }}
+            >
+              <span style={{ fontSize: "14px", color: "#9CA3AF" }}>Avg</span>
+              <strong style={{ fontSize: "24px", color: "#34D399" }}>
+                {visibleAverageConfidence !== null
+                  ? visibleAverageConfidence.toFixed(3)
+                  : "—"}
+              </strong>
+            </div>
+            <div style={{ fontSize: "12px", color: "#9CA3AF" }}>
+              {visibleConfidenceCount > 0
+                ? `${visibleConfidenceCount.toLocaleString()} point${
+                    visibleConfidenceCount === 1 ? "" : "s"
+                  }`
+                : "No points in view"}
+            </div>
           </div>
         </div>
         <Tooltip hoveredPoint={hoveredPoint} mousePos={mousePos} />
