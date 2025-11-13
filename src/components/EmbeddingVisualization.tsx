@@ -285,11 +285,11 @@ const ConfidenceSlider: React.FC<{
           color: "#999",
         }}
       >
-        <span>{minRange.toFixed(2)}</span>
+        <span>{minRange.toFixed(3)}</span>
         <span style={{ color: "#4CAF50", fontWeight: 500 }}>
-          {currentRange[0].toFixed(2)} - {currentRange[1].toFixed(2)}
+          {currentRange[0].toFixed(3)} - {currentRange[1].toFixed(3)}
         </span>
-        <span>{maxRange.toFixed(2)}</span>
+        <span>{maxRange.toFixed(3)}</span>
       </div>
       <div style={{ padding: "0 2px" }}>
         <Slider
