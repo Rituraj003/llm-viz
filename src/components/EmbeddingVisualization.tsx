@@ -9,6 +9,7 @@ import * as d3 from "d3";
 import Slider from "rc-slider";
 import "rc-slider/assets/index.css";
 import DetailView from "./DetailView";
+import TryOutModal from "./TryOutModal";
 
 const CLUSTER_NAMES: { [key: number]: string } = {
   0: "Percentage and Fraction Problems",
@@ -450,6 +451,7 @@ const EmbeddingVisualization: React.FC = () => {
     0, 1,
   ]);
   const [activeTab, setActiveTab] = useState<"filters" | "clusters">("filters");
+  const [showTryOut, setShowTryOut] = useState(false);
 
   const dimensions = {
     width: 1000,
@@ -817,17 +819,33 @@ const EmbeddingVisualization: React.FC = () => {
             mistralai/Mistral-7B-Instruct-v0.3
           </strong>
         </p>
-        <button
-          onClick={handleResetView}
-          className="reset-button"
-          style={{
-            background: "linear-gradient(to right, #4f4f4f, #3a3a3a)",
-            border: "1px solid #666",
-            boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
-          }}
-        >
-          Reset View
-        </button>
+        <div style={{ display: "flex", gap: "10px" }}>
+          <button
+            onClick={handleResetView}
+            className="reset-button"
+            style={{
+              flex: 1,
+              background: "linear-gradient(to right, #4f4f4f, #3a3a3a)",
+              border: "1px solid #666",
+              boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
+            }}
+          >
+            Reset View
+          </button>
+          <button
+            onClick={() => setShowTryOut(true)}
+            className="reset-button"
+            style={{
+              flex: 1,
+              background: "linear-gradient(to right, #2e7d32, #1b5e20)",
+              border: "1px solid #4CAF50",
+              boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
+              color: "#fff",
+            }}
+          >
+            Try Out
+          </button>
+        </div>
 
         {/* Tab Navigation */}
         <div
@@ -1009,6 +1027,7 @@ const EmbeddingVisualization: React.FC = () => {
             onClose={() => setSelectedPointId(null)}
           />
         )}
+        {showTryOut && <TryOutModal onClose={() => setShowTryOut(false)} />}
       </div>
     </div>
   );
