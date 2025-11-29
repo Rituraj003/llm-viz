@@ -104,19 +104,100 @@ const Legend: React.FC<{
   clusterColors: Map<number, string>;
   activeClusters: Set<number>;
   onToggleCluster: (cluster: number) => void;
-}> = ({ clusterColors, activeClusters, onToggleCluster }) => {
+  onSelectAll: () => void;
+  onDeselectAll: () => void;
+}> = ({
+  clusterColors,
+  activeClusters,
+  onToggleCluster,
+  onSelectAll,
+  onDeselectAll,
+}) => {
+  const totalClusters = clusterColors.size;
+  const selectedCount = activeClusters.size;
+  const isAll = selectedCount === totalClusters;
+  const isNone = selectedCount === 0;
+
+  const handleMasterClick = () => {
+    if (isAll) {
+      onDeselectAll();
+    } else {
+      onSelectAll();
+    }
+  };
+
   return (
     <>
-      <h4
+      <div
         style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
           marginBottom: "15px",
           marginTop: "5px",
-          color: "#E0E0E0",
-          fontWeight: 500,
         }}
       >
-        Clusters
-      </h4>
+        <h4
+          style={{
+            margin: 0,
+            color: "#E0E0E0",
+            fontWeight: 500,
+          }}
+        >
+          Clusters
+        </h4>
+        <div
+          onClick={handleMasterClick}
+          title={isAll ? "Deselect All" : "Select All"}
+          style={{
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            color: "#9CA3AF",
+            fontSize: "12px",
+            userSelect: "none",
+          }}
+        >
+          <span>{isAll ? "All" : isNone ? "None" : "Mixed"}</span>
+          <div
+            style={{
+              width: "16px",
+              height: "16px",
+              border: "1px solid #6B7280",
+              borderRadius: "4px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: isNone ? "transparent" : "#3a3a3a",
+            }}
+          >
+            {isAll && (
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#4CAF50"
+                strokeWidth="4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            )}
+            {!isAll && !isNone && (
+              <div
+                style={{
+                  width: "8px",
+                  height: "2px",
+                  backgroundColor: "#4CAF50",
+                }}
+              />
+            )}
+          </div>
+        </div>
+      </div>
       <div
         style={{ maxHeight: "400px", overflowY: "auto", paddingRight: "10px" }}
       >
@@ -576,8 +657,8 @@ const EmbeddingVisualization: React.FC = () => {
     const tx = transform.rescaleX(xScale);
     const ty = transform.rescaleY(yScale);
 
-    const xAxis = d3.axisBottom(tx);
-    const yAxis = d3.axisLeft(ty);
+    const xAxis = d3.axisBottom(tx).tickFormat(() => "");
+    const yAxis = d3.axisLeft(ty).tickFormat(() => "");
 
     svg.selectAll(".x-axis").remove();
     svg.selectAll(".y-axis").remove();
@@ -674,6 +755,14 @@ const EmbeddingVisualization: React.FC = () => {
       }
       return next;
     });
+  };
+
+  const handleSelectAll = () => {
+    setActiveClusters(new Set(data.map((d) => d.cluster)));
+  };
+
+  const handleDeselectAll = () => {
+    setActiveClusters(new Set());
   };
 
   const handleResetView = () => {
@@ -812,6 +901,8 @@ const EmbeddingVisualization: React.FC = () => {
               clusterColors={clusterColors}
               activeClusters={activeClusters}
               onToggleCluster={handleToggleCluster}
+              onSelectAll={handleSelectAll}
+              onDeselectAll={handleDeselectAll}
             />
           </div>
         )}
@@ -886,7 +977,7 @@ const EmbeddingVisualization: React.FC = () => {
                 marginBottom: "6px",
               }}
             >
-              Visible Selection
+              Avg. Confidence (Visible)
             </div>
             <div
               style={{
@@ -895,12 +986,12 @@ const EmbeddingVisualization: React.FC = () => {
                 gap: "8px",
               }}
             >
-              <span style={{ fontSize: "14px", color: "#9CA3AF" }}>Avg</span>
               <strong style={{ fontSize: "24px", color: "#34D399" }}>
                 {visibleAverageConfidence !== null
                   ? visibleAverageConfidence.toFixed(3)
                   : "—"}
               </strong>
+              <span style={{ fontSize: "14px", color: "#6B7280" }}>/ 1.0</span>
             </div>
             <div style={{ fontSize: "12px", color: "#9CA3AF" }}>
               {visibleConfidenceCount > 0
