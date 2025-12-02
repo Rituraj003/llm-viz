@@ -27,9 +27,7 @@ interface ParsedTokens {
 
 const TryOutModal: React.FC<TryOutModalProps> = ({ onClose }) => {
   const [apiKey, setApiKey] = useState("");
-  const [endpoint, setEndpoint] = useState(
-    "http://localhost:8080/v1/chat/completions"
-  );
+  const [endpoint, setEndpoint] = useState("http://xyz/v1/chat/completions");
   const [prompt, setPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [tokens, setTokens] = useState<TokenData[]>([]);
@@ -329,7 +327,7 @@ const TryOutModal: React.FC<TryOutModalProps> = ({ onClose }) => {
                     type="text"
                     value={endpoint}
                     onChange={(e) => setEndpoint(e.target.value)}
-                    placeholder="http://localhost:8080/v1/chat/completions"
+                    placeholder="http://xyz/v1/chat/completions"
                   />
                 </div>
                 <div className="input-group">
