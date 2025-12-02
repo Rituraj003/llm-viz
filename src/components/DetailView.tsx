@@ -208,239 +208,251 @@ const DetailView: React.FC<DetailViewProps> = ({ pointId, onClose }) => {
           </section>
 
           <section className="detail-section">
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "12px",
-              }}
-            >
-              <h3>Model Response</h3>
+            <div className="detail-sticky-header">
               <div
                 style={{
                   display: "flex",
-                  gap: "12px",
-                  fontSize: "13px",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "12px",
+                }}
+              >
+                <h3 style={{ margin: 0 }}>Model Response</h3>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "12px",
+                    fontSize: "13px",
+                    alignItems: "center",
+                  }}
+                >
+                  <button
+                    onClick={() => setShowInfo(!showInfo)}
+                    style={{
+                      background: "#2a2a2a",
+                      color: "#e0e0e0",
+                      border: "1px solid #444",
+                      borderRadius: "50%",
+                      width: "24px",
+                      height: "24px",
+                      cursor: "pointer",
+                      fontSize: "14px",
+                      fontWeight: "bold",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: 0,
+                    }}
+                    title="Show metrics information"
+                  >
+                    ?
+                  </button>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "6px",
+                      alignItems: "center",
+                    }}
+                  >
+                    <label style={{ color: "#999" }}>Metric:</label>
+                    <select
+                      value={metric}
+                      onChange={(e) => setMetric(e.target.value as MetricType)}
+                      style={{
+                        background: "#2a2a2a",
+                        color: "#e0e0e0",
+                        border: "1px solid #444",
+                        borderRadius: "4px",
+                        padding: "4px 8px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <option value="confidence">Confidence</option>
+                      <option value="surprisal">Surprisal (bits)</option>
+                      <option value="gap">Gap (nats)</option>
+                    </select>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "6px",
+                      alignItems: "center",
+                    }}
+                  >
+                    <label style={{ color: "#999" }}>Scale:</label>
+                    <select
+                      value={normMode}
+                      onChange={(e) =>
+                        setNormMode(e.target.value as NormalizationMode)
+                      }
+                      style={{
+                        background: "#2a2a2a",
+                        color: "#e0e0e0",
+                        border: "1px solid #444",
+                        borderRadius: "4px",
+                        padding: "4px 8px",
+                        cursor: "pointer",
+                      }}
+                      disabled={!globalStats}
+                    >
+                      <option value="local">Local</option>
+                      <option value="global">Global</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              {showInfo && (
+                <div
+                  style={{
+                    background: "#2a2a2a",
+                    border: "1px solid #444",
+                    borderRadius: "8px",
+                    padding: "16px",
+                    marginBottom: "12px",
+                    fontSize: "13px",
+                    lineHeight: "1.6",
+                  }}
+                >
+                  <h4
+                    style={{
+                      marginTop: 0,
+                      marginBottom: "12px",
+                      color: "#e0e0e0",
+                    }}
+                  >
+                    Metrics Explanation
+                  </h4>
+                  <div style={{ marginBottom: "12px" }}>
+                    <strong style={{ color: "#77dd77" }}>Confidence:</strong> A
+                    user-friendly metric (0-100%) showing how confident the
+                    model was in choosing each token. Higher values (green)
+                    indicate more confident predictions.
+                  </div>
+                  <div style={{ marginBottom: "12px" }}>
+                    <strong style={{ color: "#77dd77" }}>Surprisal:</strong> A
+                    technical metric measured in bits. Lower values (green)
+                    indicate tokens the model expected, while higher values
+                    (red) indicate surprising or unexpected tokens.
+                  </div>
+                  <div style={{ marginBottom: "12px" }}>
+                    <strong style={{ color: "#77dd77" }}>Gap:</strong> The
+                    difference between the chosen token's logprob and the
+                    second-best alternative, measured in nats. Higher values
+                    (green) indicate the model strongly preferred this token
+                    over alternatives.
+                  </div>
+                  <h4
+                    style={{
+                      marginTop: "16px",
+                      marginBottom: "12px",
+                      color: "#e0e0e0",
+                    }}
+                  >
+                    Normalization Scales
+                  </h4>
+                  <div style={{ marginBottom: "12px" }}>
+                    <strong style={{ color: "#77dd77" }}>Local:</strong> Colors
+                    are normalized within this response only. Helps you see
+                    relative confidence patterns within a single answer.
+                  </div>
+                  <div>
+                    <strong style={{ color: "#77dd77" }}>Global:</strong> Colors
+                    are normalized across the entire dataset using 5th-95th
+                    percentiles. Allows comparison of confidence levels across
+                    different responses.
+                  </div>
+                </div>
+              )}
+              <div
+                style={{
+                  minHeight: "50px",
+                  marginBottom: "8px",
+                  display: "flex",
                   alignItems: "center",
                 }}
               >
-                <button
-                  onClick={() => setShowInfo(!showInfo)}
-                  style={{
-                    background: "#2a2a2a",
-                    color: "#e0e0e0",
-                    border: "1px solid #444",
-                    borderRadius: "50%",
-                    width: "24px",
-                    height: "24px",
-                    cursor: "pointer",
-                    fontSize: "14px",
-                    fontWeight: "bold",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: 0,
-                  }}
-                  title="Show metrics information"
-                >
-                  ?
-                </button>
-                <div
-                  style={{ display: "flex", gap: "6px", alignItems: "center" }}
-                >
-                  <label style={{ color: "#999" }}>Metric:</label>
-                  <select
-                    value={metric}
-                    onChange={(e) => setMetric(e.target.value as MetricType)}
+                {hoveredToken ? (
+                  <div
                     style={{
                       background: "#2a2a2a",
-                      color: "#e0e0e0",
                       border: "1px solid #444",
-                      borderRadius: "4px",
-                      padding: "4px 8px",
-                      cursor: "pointer",
+                      borderRadius: "6px",
+                      padding: "8px 12px",
+                      fontSize: "12px",
+                      display: "flex",
+                      gap: "16px",
+                      width: "100%",
+                      alignItems: "center",
                     }}
                   >
-                    <option value="confidence">Confidence</option>
-                    <option value="surprisal">Surprisal (bits)</option>
-                    <option value="gap">Gap (nats)</option>
-                  </select>
-                </div>
-                <div
-                  style={{ display: "flex", gap: "6px", alignItems: "center" }}
-                >
-                  <label style={{ color: "#999" }}>Scale:</label>
-                  <select
-                    value={normMode}
-                    onChange={(e) =>
-                      setNormMode(e.target.value as NormalizationMode)
-                    }
+                    <div style={{ whiteSpace: "pre" }}>
+                      <strong>Token:</strong> "{hoveredToken.token}"
+                    </div>
+                    <div>
+                      <strong>Confidence:</strong>{" "}
+                      {(hoveredToken.confidenceScore * 100).toFixed(1)}%
+                    </div>
+                    <div>
+                      <strong>Surprisal:</strong>{" "}
+                      {formatMetric(hoveredToken.surprisal, "surprisal")}
+                    </div>
+                    <div>
+                      <strong>Gap:</strong>{" "}
+                      {formatMetric(hoveredToken.gap, "gap")}
+                    </div>
+                  </div>
+                ) : (
+                  <div
                     style={{
-                      background: "#2a2a2a",
-                      color: "#e0e0e0",
-                      border: "1px solid #444",
-                      borderRadius: "4px",
-                      padding: "4px 8px",
-                      cursor: "pointer",
+                      color: "#666",
+                      fontSize: "12px",
+                      textAlign: "center",
+                      width: "100%",
                     }}
-                    disabled={!globalStats}
                   >
-                    <option value="local">Local</option>
-                    <option value="global">Global</option>
-                  </select>
-                </div>
+                    Hover over tokens to see detailed metrics
+                  </div>
+                )}
               </div>
-            </div>
-            {showInfo && (
-              <div
-                style={{
-                  background: "#2a2a2a",
-                  border: "1px solid #444",
-                  borderRadius: "8px",
-                  padding: "16px",
-                  marginBottom: "12px",
-                  fontSize: "13px",
-                  lineHeight: "1.6",
-                }}
-              >
-                <h4
-                  style={{
-                    marginTop: 0,
-                    marginBottom: "12px",
-                    color: "#e0e0e0",
-                  }}
-                >
-                  Metrics Explanation
-                </h4>
-                <div style={{ marginBottom: "12px" }}>
-                  <strong style={{ color: "#77dd77" }}>Confidence:</strong> A
-                  user-friendly metric (0-100%) showing how confident the model
-                  was in choosing each token. Higher values (green) indicate
-                  more confident predictions.
-                </div>
-                <div style={{ marginBottom: "12px" }}>
-                  <strong style={{ color: "#77dd77" }}>Surprisal:</strong> A
-                  technical metric measured in bits. Lower values (green)
-                  indicate tokens the model expected, while higher values (red)
-                  indicate surprising or unexpected tokens.
-                </div>
-                <div style={{ marginBottom: "12px" }}>
-                  <strong style={{ color: "#77dd77" }}>Gap:</strong> The
-                  difference between the chosen token's logprob and the
-                  second-best alternative, measured in nats. Higher values
-                  (green) indicate the model strongly preferred this token over
-                  alternatives.
-                </div>
-                <h4
-                  style={{
-                    marginTop: "16px",
-                    marginBottom: "12px",
-                    color: "#e0e0e0",
-                  }}
-                >
-                  Normalization Scales
-                </h4>
-                <div style={{ marginBottom: "12px" }}>
-                  <strong style={{ color: "#77dd77" }}>Local:</strong> Colors
-                  are normalized within this response only. Helps you see
-                  relative confidence patterns within a single answer.
-                </div>
-                <div>
-                  <strong style={{ color: "#77dd77" }}>Global:</strong> Colors
-                  are normalized across the entire dataset using 5th-95th
-                  percentiles. Allows comparison of confidence levels across
-                  different responses.
-                </div>
+              <div className="confidence-legend">
+                <span className="legend-item">
+                  <span
+                    className="legend-color"
+                    style={{
+                      backgroundColor: getMetricColor(
+                        metric === "surprisal" ? 0.2 : 0.8,
+                        metric
+                      ),
+                    }}
+                  />
+                  {metric === "surprisal"
+                    ? "Low Surprisal"
+                    : "High " +
+                      (metric === "confidence" ? "Confidence" : "Gap")}
+                </span>
+                <span className="legend-item">
+                  <span
+                    className="legend-color"
+                    style={{ backgroundColor: getMetricColor(0.5, metric) }}
+                  />
+                  Medium
+                </span>
+                <span className="legend-item">
+                  <span
+                    className="legend-color"
+                    style={{
+                      backgroundColor: getMetricColor(
+                        metric === "surprisal" ? 0.8 : 0.2,
+                        metric
+                      ),
+                    }}
+                  />
+                  {metric === "surprisal"
+                    ? "High Surprisal"
+                    : "Low " +
+                      (metric === "confidence" ? "Confidence" : "Gap")}
+                </span>
               </div>
-            )}
-            <div
-              style={{
-                minHeight: "50px",
-                marginBottom: "8px",
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              {hoveredToken ? (
-                <div
-                  style={{
-                    background: "#2a2a2a",
-                    border: "1px solid #444",
-                    borderRadius: "6px",
-                    padding: "8px 12px",
-                    fontSize: "12px",
-                    display: "flex",
-                    gap: "16px",
-                    width: "100%",
-                    alignItems: "center",
-                  }}
-                >
-                  <div style={{ whiteSpace: "pre" }}>
-                    <strong>Token:</strong> "{hoveredToken.token}"
-                  </div>
-                  <div>
-                    <strong>Confidence:</strong>{" "}
-                    {(hoveredToken.confidenceScore * 100).toFixed(1)}%
-                  </div>
-                  <div>
-                    <strong>Surprisal:</strong>{" "}
-                    {formatMetric(hoveredToken.surprisal, "surprisal")}
-                  </div>
-                  <div>
-                    <strong>Gap:</strong>{" "}
-                    {formatMetric(hoveredToken.gap, "gap")}
-                  </div>
-                </div>
-              ) : (
-                <div
-                  style={{
-                    color: "#666",
-                    fontSize: "12px",
-                    textAlign: "center",
-                    width: "100%",
-                  }}
-                >
-                  Hover over tokens to see detailed metrics
-                </div>
-              )}
-            </div>
-            <div className="confidence-legend">
-              <span className="legend-item">
-                <span
-                  className="legend-color"
-                  style={{
-                    backgroundColor: getMetricColor(
-                      metric === "surprisal" ? 0.2 : 0.8,
-                      metric
-                    ),
-                  }}
-                />
-                {metric === "surprisal"
-                  ? "Low Surprisal"
-                  : "High " + (metric === "confidence" ? "Confidence" : "Gap")}
-              </span>
-              <span className="legend-item">
-                <span
-                  className="legend-color"
-                  style={{ backgroundColor: getMetricColor(0.5, metric) }}
-                />
-                Medium
-              </span>
-              <span className="legend-item">
-                <span
-                  className="legend-color"
-                  style={{
-                    backgroundColor: getMetricColor(
-                      metric === "surprisal" ? 0.8 : 0.2,
-                      metric
-                    ),
-                  }}
-                />
-                {metric === "surprisal"
-                  ? "High Surprisal"
-                  : "Low " + (metric === "confidence" ? "Confidence" : "Gap")}
-              </span>
             </div>
             {renderTokens()}
           </section>
